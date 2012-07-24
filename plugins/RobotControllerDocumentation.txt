@@ -1,0 +1,20 @@
+RobotControllerPlugin Documentation
+
+rcjoint Element (required)(1..n)
+
+gname Element (required)(string)
+    Name of Joint in the Model
+
+fname Element (optional, defaults to gname)(string)
+    Name of Joint in the stored data
+
+offset Element (optional, defaults to 0) (double)
+    Offset between Model and data
+
+
+
+Example
+<rcjoint>1</rcjoint>
+<gname1>Name</gname1>
+<fname1>Another Name</fname1>
+<offset1>0.0</offset1>

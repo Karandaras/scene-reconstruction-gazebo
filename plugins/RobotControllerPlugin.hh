@@ -14,8 +14,8 @@
  * limitations under the License.
  *
 */
-#ifndef __GAZEBO_DIFFDRIVE_PLUGIN_HH__
-#define __GAZEBO_DIFFDRIVE_PLUGIN_HH__
+#ifndef __GAZEBO_ROBOTCONTROLLER_PLUGIN_HH__
+#define __GAZEBO_ROBOTCONTROLLER_PLUGIN_HH__
 
 #include "common/common.h"
 #include "physics/physics.h"
@@ -26,20 +26,28 @@ namespace gazebo
 {
   class RobotControllerPlugin : public ModelPlugin
   {
+    typedef struct {
+        std::string simulator_name;
+        std::string robot_name;
+        double offset;
+        double simulator_angle;
+        double robot_angle;
+    } JointData;
+
     public: RobotControllerPlugin();
     public: virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
     public: virtual void Init();
 
-    private: void OnUpdate();
-
-    private: void OnVelMsg(ConstPosePtr &_msg);
+    private: void OnSceneJointMsg(ConstSceneJointPtr &_msg);
+    private: void OnRequestMsg(ConstRequestPtr &_msg);
 
     private: transport::NodePtr node;
-    private: transport::SubscriberPtr velSub;
+    private: transport::SubscriberPtr jointSub, srguiSub;
+    private: transport::PublisherPtr srguiPub;
 
     private: physics::ModelPtr model;
-    private: event::ConnectionPtr updateConnection;
-    private: common::Time prevUpdateTime;
+    private: std::map<std::string, JointData> jointdata;
+    private: std::map<std::string, JointData>::iterator jointiter;
   };
 }
 #endif
