@@ -7,7 +7,7 @@ package gazebo.msgs;
 
 message SceneJoint
 {
-	repeated string name 		= 1;
+	repeated string joint 		= 1;
 	repeated double angle		= 2;
 }
 
