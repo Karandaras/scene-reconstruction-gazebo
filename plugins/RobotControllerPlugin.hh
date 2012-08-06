@@ -39,10 +39,11 @@ namespace gazebo
     public: virtual void Init();
 
     private: void OnSceneJointMsg(ConstSceneJointPtr &_msg);
+    private: void OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg);
     private: void OnRequestMsg(ConstRequestPtr &_msg);
 
     private: transport::NodePtr node;
-    private: transport::SubscriberPtr jointSub, srguiSub;
+    private: transport::SubscriberPtr jointSub, srguiSub, changeJointSub;
     private: transport::PublisherPtr srguiPub;
 
     private: physics::ModelPtr model;

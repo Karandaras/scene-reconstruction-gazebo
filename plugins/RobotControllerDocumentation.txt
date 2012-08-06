@@ -14,7 +14,8 @@ offset Element (optional, defaults to 0) (double)
 
 
 Example
-<rcjoint>1</rcjoint>
-<gname1>Name</gname1>
-<fname1>Another Name</fname1>
-<offset1>0.0</offset1>
+<rcjoint>
+	<gname>Name</gname>
+	<fname>Another Name</fname>
+	<offset>0.0</offset>
+</rcjoint>
