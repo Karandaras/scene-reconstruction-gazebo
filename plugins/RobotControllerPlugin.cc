@@ -140,20 +140,24 @@ void RobotControllerPlugin::OnSceneJointMsg(ConstSceneJointPtr &_msg) {
   std::map<std::string,double> positions;
 
   int joints = _msg->joint_size();
-  if(joints == _msg->angle_size()) {
-    for(int i=0; i<joints; i++) {
-      this->jointiter = this->jointdata.find(_msg->joint(i));
-      if(this->jointiter != jointdata.end()) {
-        positions[jointiter->second.simulator_name] = jointiter->second.offset+_msg->angle(i);
-	jointiter->second.simulator_angle = jointiter->second.offset+_msg->angle(i);
-        jointiter->second.robot_angle = _msg->angle(i);
+  if(joints <= _model->GetJointCount()) {
+    if(joints == _msg->angle_size()) {
+      for(int i=0; i<joints; i++) {
+        this->jointiter = this->jointdata.find(_msg->joint(i));
+        if(this->jointiter != jointdata.end()) {
+          positions[jointiter->second.simulator_name] = jointiter->second.offset+_msg->angle(i);
+ 	  jontiter->second.simulator_angle = jointiter->second.offset+_msg->angle(i);
+          jointiter->second.robot_angle = _msg->angle(i);
+        }
       }
-    }
-    this->jointiter = jointdata.end();
+      this->jointiter = jointdata.end();
 
-    this->model->SetJointPositions(positions);
+      this->model->SetJointPositions(positions);
+    } else {
+      gzerr << "number of joints differs from number of angles\n";
+    }
   } else {
-    gzerr << "number of joints differs from number of angles\n";
+    gzerr << "message tries to alter more joints then available\n";
   }
   
   positions.clear();
@@ -175,6 +179,14 @@ void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
         src.add_simulator_angle(jointiter->second.simulator_angle);
 	src.add_robot_angle(jointiter->second.robot_angle);
     }
+    math::Pose pose _model->GetWorldPose();
+    src.set_pos_x(pose.pos.x);
+    src.set_pos_y(pose.pos.y);
+    src.set_pos_z(pose.pos.z);
+    src.set_rot_w(pose.rot.w);
+    src.set_rot_x(pose.rot.y);
+    src.set_rot_y(pose.rot.y);
+    src.set_rot_z(pose.rot.z);
 
     std::string *serializedData = response.mutable_serialized_data();
     src.SerializeToString(serializedData);
