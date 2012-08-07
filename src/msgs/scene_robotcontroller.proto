@@ -12,5 +12,14 @@ message SceneRobotController
 	repeated double offset			= 3;
 	repeated double simulator_angle		= 4;
 	repeated double robot_angle		= 5;
+
+	optional double pos_x			= 6;
+	optional double pos_y			= 7;
+	optional double pos_z			= 8;
+	
+	optional double rot_w			= 9;
+	optional double rot_x			= 10;
+	optional double rot_y			= 11;
+	optional double rot_z			= 12;
 }
 
