@@ -140,17 +140,17 @@ void RobotControllerPlugin::OnSceneJointMsg(ConstSceneJointPtr &_msg) {
   std::map<std::string,double> positions;
 
   int joints = _msg->joint_size();
-  if(joints <= _model->GetJointCount()) {
+  if(joints <= this->model->GetJointCount()) {
     if(joints == _msg->angle_size()) {
       for(int i=0; i<joints; i++) {
         this->jointiter = this->jointdata.find(_msg->joint(i));
         if(this->jointiter != jointdata.end()) {
-          positions[jointiter->second.simulator_name] = jointiter->second.offset+_msg->angle(i);
- 	  jontiter->second.simulator_angle = jointiter->second.offset+_msg->angle(i);
-          jointiter->second.robot_angle = _msg->angle(i);
+          positions[this->jointiter->second.simulator_name] = this->jointiter->second.offset+_msg->angle(i);
+ 	  this->jontiter->second.simulator_angle = this->jointiter->second.offset+_msg->angle(i);
+          this->jointiter->second.robot_angle = _msg->angle(i);
         }
       }
-      this->jointiter = jointdata.end();
+      this->jointiter = this->jointdata.end();
 
       this->model->SetJointPositions(positions);
     } else {
@@ -177,9 +177,9 @@ void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
         src.add_robot_name(jointiter->second.robot_name);
         src.add_offset(jointiter->second.offset);
         src.add_simulator_angle(jointiter->second.simulator_angle);
-	src.add_robot_angle(jointiter->second.robot_angle);
+	      src.add_robot_angle(jointiter->second.robot_angle);
     }
-    math::Pose pose _model->GetWorldPose();
+    math::Pose pose = this->model->GetWorldPose();
     src.set_pos_x(pose.pos.x);
     src.set_pos_y(pose.pos.y);
     src.set_pos_z(pose.pos.z);
