@@ -139,14 +139,14 @@ void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg)
 void RobotControllerPlugin::OnSceneJointMsg(ConstSceneJointPtr &_msg) {
   std::map<std::string,double> positions;
 
-  int joints = _msg->joint_size();
+  unsigned int joints = _msg->joint_size();
   if(joints <= this->model->GetJointCount()) {
     if(joints == _msg->angle_size()) {
       for(int i=0; i<joints; i++) {
         this->jointiter = this->jointdata.find(_msg->joint(i));
         if(this->jointiter != jointdata.end()) {
           positions[this->jointiter->second.simulator_name] = this->jointiter->second.offset+_msg->angle(i);
- 	  this->jontiter->second.simulator_angle = this->jointiter->second.offset+_msg->angle(i);
+ 	  this->jointiter->second.simulator_angle = this->jointiter->second.offset+_msg->angle(i);
           this->jointiter->second.robot_angle = _msg->angle(i);
         }
       }
