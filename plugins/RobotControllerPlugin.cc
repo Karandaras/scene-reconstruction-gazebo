@@ -139,8 +139,8 @@ void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg)
 void RobotControllerPlugin::OnSceneJointMsg(ConstSceneJointPtr &_msg) {
   std::map<std::string,double> positions;
 
-  unsigned int joints = _msg->joint_size();
-  if(joints <= this->model->GetJointCount()) {
+  int joints = _msg->joint_size();
+  if(joints <= (int)this->model->GetJointCount()) {
     if(joints == _msg->angle_size()) {
       for(int i=0; i<joints; i++) {
         this->jointiter = this->jointdata.find(_msg->joint(i));
