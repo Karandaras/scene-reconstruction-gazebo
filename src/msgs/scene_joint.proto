@@ -1,0 +1,13 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Scene Joint
+/// \brief Message for RobotControllerPlugin joints
+/// \verbatim
+
+message SceneJoint
+{
+	repeated string joint 		= 1;
+	repeated double angle		= 2;
+}
+

@@ -1,0 +1,23 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Scene Object
+/// \brief Objectdata for the ObjectInstantiatorPlugin
+/// \verbatim
+
+message SceneObject
+{
+  required string object_type       = 1;
+	required double pos_x			        = 2;
+	required double pos_y			        = 3;
+	required double pos_z			        = 4;
+	
+	optional double rot_w			        = 5;
+	optional double rot_x			        = 6;
+	optional double rot_y			        = 7;
+	optional double rot_z			        = 8;
+  
+  required string frame             = 9;
+  required string child_frame       = 10;
+}
+
