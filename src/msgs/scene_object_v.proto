@@ -1,0 +1,25 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Scene Object
+/// \brief Objectdata for the ObjectInstantiatorPlugin
+/// \verbatim
+
+message SceneObject
+{
+  repeated string object_type       = 1;
+	repeated double pos_x			        = 2;
+	repeated double pos_y			        = 3;
+	repeated double pos_z			        = 4;
+	
+	repeated double rot_w			        = 5;
+	repeated double rot_x			        = 6;
+	repeated double rot_y			        = 7;
+	repeated double rot_z			        = 8;
+  
+  repeated string frame             = 9;
+  repeated string child_frame       = 10;
+  repeated string objectid          = 11;
+  repeated string name              = 12;
+}
+

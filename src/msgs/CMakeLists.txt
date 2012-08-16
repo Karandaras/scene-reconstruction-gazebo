@@ -69,6 +69,7 @@ set (msgs axis.proto
 	  scene_joint.proto
 	  scene_robotcontroller.proto
     scene_object.proto
+    scene_object_v.proto
 )
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

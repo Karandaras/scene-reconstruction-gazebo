@@ -19,5 +19,7 @@ message SceneObject
   
   required string frame             = 9;
   required string child_frame       = 10;
+  optional string objectid          = 11;
+  optional string name              = 12;
 }
 
