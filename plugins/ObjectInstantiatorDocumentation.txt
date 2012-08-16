@@ -1,0 +1,23 @@
+ObjectInstantiatorPlugin Documentation
+
+object Element (required)(1..n)
+
+  name Element (required)(string)
+      Name of the Object for the repository
+
+  data Element (optional*)(string)
+      sdf data of the object
+
+  filename Element (optional*)(string)
+      filename of a file containing the sdf data of the model
+      either use full path or place the file inside the GAZEBO_RESOURCE_PATH
+
+* either data or filename has to be set
+
+
+Example
+<object>
+  <name>Cup</name>
+  <filename>cup.model</filename>
+</object>
+
