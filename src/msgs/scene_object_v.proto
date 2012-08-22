@@ -5,7 +5,7 @@ package gazebo.msgs;
 /// \brief Objectdata for the ObjectInstantiatorPlugin
 /// \verbatim
 
-message SceneObject
+message SceneObject_V
 {
   repeated string object_type       = 1;
 	repeated double pos_x			        = 2;
