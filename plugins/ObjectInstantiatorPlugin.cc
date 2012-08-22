@@ -135,9 +135,9 @@ void ObjectInstantiator::OnRequestMsg(ConstRequestPtr &_msg) {
   response.set_response("success");
 
   if(_msg->request() == "object_list") {
-    msgs::SceneObject_V src;
+    msgs::String_V src;
     response.set_type(src.GetTypeName());
-    fill_object_v_msg(src);
+    fill_list_msg(src);
     std::string *serializedData = response.mutable_serialized_data();
     src.SerializeToString(serializedData);
 
@@ -221,21 +221,9 @@ bool ObjectInstantiator::fill_object_msg(std::string name, msgs::SceneObject &_m
   return false;
 }
 
-void ObjectInstantiator::fill_object_v_msg(msgs::SceneObject_V &_msg) {
+void ObjectInstantiator::fill_list_msg(msgs::String_V &_msg) {
   std::map< std::string, SceneObject>::iterator it;
   for(it = object_list.begin(); it != object_list.end(); it++) {
-    _msg.add_object_type(it->second.type);
-    const math::Pose pose = it->second.model->GetWorldPose();
-    _msg.add_pos_x(pose.pos.x);
-    _msg.add_pos_y(pose.pos.y);
-    _msg.add_pos_z(pose.pos.z);
-    _msg.add_rot_w(pose.rot.w);
-    _msg.add_rot_x(pose.rot.x);
-    _msg.add_rot_y(pose.rot.y);
-    _msg.add_rot_z(pose.rot.z);
-    _msg.add_frame(it->second.frame);
-    _msg.add_child_frame(it->second.child_frame);
-    _msg.add_objectid(it->second.objectid);
     _msg.add_name(it->first);
   }
 }
@@ -244,7 +232,6 @@ void ObjectInstantiator::fill_repository_msg(msgs::String_V &_msg) {
   std::map< std::string, std::string>::iterator it;
   for(it = objects.begin(); it != objects.end(); it++) {
     _msg.add_data(it->first);
-    _msg.add_data(it->second);
   }
 }
 
