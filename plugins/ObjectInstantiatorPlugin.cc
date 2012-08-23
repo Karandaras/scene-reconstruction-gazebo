@@ -239,13 +239,13 @@ void ObjectInstantiator::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
     double oriy = 0.0;
     double oriz = 0.0;
     std::string name = "spawned_object";
-    if(obj.has_rot_w())
+    if(obj.has_ori_w())
       oriw = obj.rot_w();
-    if(obj.has_rot_x())
+    if(obj.has_ori_x())
       orix = obj.rot_x();
-    if(obj.has_rot_y())
+    if(obj.has_ori_y())
       oriy = obj.rot_y();
-    if(obj.has_rot_z())
+    if(obj.has_ori_z())
       oriz = obj.rot_z();
     if(obj.has_name())
       name = obj.name();
@@ -281,7 +281,7 @@ void ObjectInstantiator::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
   }
 }
 
-std::string ObjectInstantiator::set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double rot_w, double rot_x, double rot_y, double rot_z) {
+std::string ObjectInstantiator::set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double ori_w, double ori_x, double ori_y, double ori_z) {
   std::ostringstream converter;
   std::string modelname;
   converter << name << "_" << this->object_count;
@@ -302,20 +302,20 @@ std::string ObjectInstantiator::set_sdf_values(std::string &_sdf, std::string na
   replace(_sdf, "@POSZ@", converter.str());
 
   converter.str("");
-  converter << rot_w;
-  replace(_sdf, "@ROTW@", converter.str());
+  converter << ori_w;
+  replace(_sdf, "@ORIW@", converter.str());
 
   converter.str("");
-  converter << rot_x;
-  replace(_sdf, "@ROTX@", converter.str());
+  converter << ori_x;
+  replace(_sdf, "@ORIX@", converter.str());
 
   converter.str("");
-  converter << rot_y;
-  replace(_sdf, "@ROTY@", converter.str());
+  converter << ori_y;
+  replace(_sdf, "@ORIY@", converter.str());
 
   converter.str("");
-  converter << rot_z;
-  replace(_sdf, "@ROTZ@", converter.str());
+  converter << ori_z;
+  replace(_sdf, "@ORIZ@", converter.str());
 
   return modelname;
 }
@@ -323,6 +323,9 @@ std::string ObjectInstantiator::set_sdf_values(std::string &_sdf, std::string na
 void replace(std::string &text, std::string search, std::string replace) {
   size_t position = text.find(search);
   size_t length = search.length();
-  text.erase(position, length);
-  text.insert(position, replace);
+  while(position != std::string::npos) {
+    text.erase(position, length);
+    text.insert(position, replace);
+    position = text.find(search);
+  }
 }

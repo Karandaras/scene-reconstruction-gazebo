@@ -20,10 +20,24 @@ object Element (required)(1..n)
       either use full path or place the file inside the
       GAZEBO_RESOURCE_PATH
 
-* either data or filename has to be set
+*either data or filename has to be set
+
+The following placeholder can be used inside the sdf file or string
+and will be replaced by the data included in the message
+@NAME@ => modelname
+@POSX@ => pos_x
+@POSY@ => pos_y
+@POSZ@ => pos_z
+@ORIW@ => ori_w
+@ORIX@ => ori_x
+@ORIY@ => ori_y
+@ORIZ@ => ori_z
 
 
 Example
+<settings>
+  <object_lifetime>0.5</object_lifetime>
+</settings>
 <object>
   <name>Cup</name>
   <filename>cup.model</filename>
