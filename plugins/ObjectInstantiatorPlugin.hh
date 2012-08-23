@@ -15,22 +15,24 @@ namespace gazebo
       typedef struct {
           std::string type;
           ModelPtr    model;
+          std::string sdf_data;
           std::string frame;
           std::string child_frame;
           std::string objectid;
+          common::Time spawntime;
           common::Time expiretime;
       } SceneObject;
 
       std::map< std::string, SceneObject> object_list;
+      std::map< std::string, SceneObject> object_spawn_list;
       std::map< std::string, std::string> objects;
       transport::NodePtr                  node;
       transport::SubscriberPtr            objectSub;
       transport::PublisherPtr             srguiPub,
                                           framePub;
-      bool                                overlapping,
-                                          temporary;
       unsigned int                        object_count;
       common::Time                        object_lifetime,
+                                          next_spawn,
                                           next_expire;
 
     public: 

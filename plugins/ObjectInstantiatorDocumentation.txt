@@ -1,16 +1,24 @@
 ObjectInstantiatorPlugin Documentation
 
+settings Element (optional)
+  object_lifetime Element (optional)(double) (default 0.5 seconds)
+      Time after which an object gets deleted, set this to the 
+      time that passes between checks for new objects for best
+      results
+
+
 object Element (required)(1..n)
 
   name Element (required)(string)
       Name of the Object for the repository
 
-  data Element (optional*)(string)
+  data Element (required*)(string)
       sdf data of the object
 
-  filename Element (optional*)(string)
+  filename Element (required*)(string)
       filename of a file containing the sdf data of the model
-      either use full path or place the file inside the GAZEBO_RESOURCE_PATH
+      either use full path or place the file inside the
+      GAZEBO_RESOURCE_PATH
 
 * either data or filename has to be set
 

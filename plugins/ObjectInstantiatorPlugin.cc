@@ -8,7 +8,7 @@ using namespace gazebo;
 
 ObjectInstantiator::ObjectInstantiator() : WorldPlugin() 
 {
-  this->object_lifetime = common::Time(10.0);
+  this->object_lifetime = common::Time(0.5);
 }
 
 void ObjectInstantiator::Init() {
@@ -30,30 +30,10 @@ void ObjectInstantiator::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
   sdf::ElementPtr settingsElem;
   if (_sdf->HasElement("settings")) {
     settingsElem = _sdf->GetElement("settings");
-    if(settingsElem->HasElement("overlapping")) {
-      if(!settingsElem->GetElement("overlapping")->GetValue()->Get(overlapping)) {
-    	  gzerr << "<overlapping> is not a bool, defaulting to true\n";
-        overlapping = true;
-      }
-    }
-    else {
-      overlapping = true;
-    }
-
-    if(settingsElem->HasElement("temporary")) {
-      if(!settingsElem->GetElement("temporary")->GetValue()->Get(overlapping)) {
-    	  gzerr << "<temporary> is not a bool, defaulting to false\n";
-        temporary = false;
-      }
-    }
-    else {
-      temporary = false;
-    }
-
     if(settingsElem->HasElement("object_lifetime")) {
       double lifetime;
       if(!settingsElem->GetElement("object_lifetime")->GetValue()->Get(lifetime)) {
-    	  gzerr << "<object_lifetime> is not a double, defaulting to 10 seconds\n";
+    	  gzerr << "<object_lifetime> is not a double, defaulting to 0.5 seconds\n";
       }
       else {
         this->object_lifetime = common::Time(lifetime);
@@ -119,15 +99,6 @@ void ObjectInstantiator::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
   }
 }
 
-void ObjectInstantiator::OnSceneObjectMsg(ConstSceneObject_VPtr &_msg) {
-  if(overlapping)
-    process_objects_overlapping(_msg);
-  else if(temporary)
-    process_objects_temporary(_msg);
-  else
-    process_objects_non_overlapping(_msg);
-}
-
 void ObjectInstantiator::OnRequestMsg(ConstRequestPtr &_msg) {
   msgs::Response response;
   response.set_id(_msg->id());
@@ -178,23 +149,40 @@ void ObjectInstantiator::OnRequestMsg(ConstRequestPtr &_msg) {
 }
 
 void ObjectInstantiator::OnUpdate() {
-  if (this->temporary)
-    return;
-
-  if(common::Time::GetWallTime() < this->next_expire)
-    return;
-  
   common::Time now = common::Time::GetWallTime();
-  common::Time old_expire = this->next_expire;
-  this->next_expire = now + this->object_lifetime + this->object_lifetime + this->object_lifetime;
-  std::map< std::string, SceneObject>::iterator it;
-  for(it = object_list.begin(); it != object_list.end(); it++) {
-    if(it->second.expiretime < now) {
-      this->world->rootElement->RemoveChild(it->second.model->GetID());
-      object_list.erase(it);
+
+  if(now >= this->next_spawn) {
+    common::Time old_spawn = this->next_spawn;
+    this->next_spawn = now + this->object_lifetime + this->object_lifetime + this->object_lifetime;
+    std::map< std::string, SceneObject>::iterator it;
+    for(it = object_spawn_list.begin(); it != object_spawn_list.end(); it++) {
+      if(it->second.spawntime < now) {
+        if(it->second.expiretime <= this->next_expire)
+          this->next_expire = it->second.expiretime;
+        _sdf.SetFromString(it->second.sdf_data);
+        this->world->InsertModel(_sdf);
+        it->second.model = this->world->GetModel(modelname);
+        object_list[it->first] = it->second;
+        object_spawn_list.erase(it);
+      }
+      else if(it->second.spawntime < this->next_spawn) {
+        this->next_spawn = it->second.spawntime;
+      }
     }
-    else if(it->second.expiretime < this->next_expire) {
-      this->next_expire = it->second.expiretime;
+  }
+
+  if(now >= this->next_expire) {
+    common::Time old_expire = this->next_expire;
+    this->next_expire = now + this->object_lifetime + this->object_lifetime + this->object_lifetime;
+    std::map< std::string, SceneObject>::iterator it;
+    for(it = object_list.begin(); it != object_list.end(); it++) {
+      if(it->second.expiretime < now) {
+        this->world->rootElement->RemoveChild(it->second.model->GetID());
+        object_list.erase(it);
+      }
+      else if(it->second.expiretime < this->next_expire) {
+        this->next_expire = it->second.expiretime;
+      }
     }
   }
 }
@@ -235,75 +223,61 @@ void ObjectInstantiator::fill_repository_msg(msgs::String_V &_msg) {
   }
 }
 
-void ObjectInstantiator::process_objects_overlapping(ConstSceneObject_VPtr &_msg) {
+void ObjectInstantiator::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
   // add new models
-  for(int n=0; n<_msg->object_type_size(); n++) {
+  msgs::SceneObject obj;
+  if(_msg->type() != obj.GetTypeName())
+    return;
+
+  for(int n=0; n<_msg->msgdata(); n++) {
+    obj.ParseFromString(_msg->msgdata(n));
     sdf::SDF _sdf;
     std::string sdf_data;
-    sdf_data = objects[_msg->object_type(n)];
-    std::string modelname = set_sdf_values(sdf_data, _msg->name(n), _msg->pos_x(n), _msg->pos_y(n), _msg->pos_z(n), _msg->rot_w(n), _msg->rot_x(n), _msg->rot_y(n), _msg->rot_z(n));
+    sdf_data = objects[obj.object_type()];
+    double oriw = 0.0;
+    double orix = 0.0;
+    double oriy = 0.0;
+    double oriz = 0.0;
+    std::string name = "spawned_object";
+    if(obj.has_rot_w())
+      oriw = obj.rot_w();
+    if(obj.has_rot_x())
+      orix = obj.rot_x();
+    if(obj.has_rot_y())
+      oriy = obj.rot_y();
+    if(obj.has_rot_z())
+      oriz = obj.rot_z();
+    if(obj.has_name())
+      name = obj.name();
+
+    std::string modelname = set_sdf_values(sdf_data, name, obj.pos_x(), obj.pos_y(), obj.pos_z(), oriw, orix, oriy, oriz);
     SceneObject so;
-    so.type = _msg->object_type(n);
-    so.frame = _msg->frame(n);
-    so.child_frame = _msg->child_frame(n);
-    so.objectid = _msg->objectid(n);
-    _sdf.SetFromString(sdf_data);
-    this->world->InsertModel(_sdf);
-    so.model = this->world->GetModel(modelname);
-    if(so.expiretime <= this->next_expire)
-      this->next_expire = so.expiretime;
-    object_list[modelname] = so;
-  }
-}
+    so.type = obj.object_type();
+    so.frame = obj.frame(;
+    so.child_frame = obj.child_frame();
+    so.objectid = obj.objectid();
 
-void ObjectInstantiator::process_objects_non_overlapping(ConstSceneObject_VPtr &_msg) {
-  // add new models
-  for(int n=0; n<_msg->object_type_size(); n++) {
-    // check for overlapping existing models
-//    for(it = object_list.begin(); it != object_list.end(); it++) {
-//    }
-
-    sdf::SDF _sdf;
-    std::string sdf_data;
-    sdf_data = objects[_msg->object_type(n)];
-    std::string modelname = set_sdf_values(sdf_data, _msg->name(n), _msg->pos_x(n), _msg->pos_y(n), _msg->pos_z(n), _msg->rot_w(n), _msg->rot_x(n), _msg->rot_y(n), _msg->rot_z(n));
-    SceneObject so;
-    so.type = _msg->object_type(n);
-    so.frame = _msg->frame(n);
-    so.child_frame = _msg->child_frame(n);
-    so.objectid = _msg->objectid(n);
-    _sdf.SetFromString(sdf_data);
-    this->world->InsertModel(_sdf);
-    so.model = this->world->GetModel(modelname);
-    so.expiretime = common::Time::GetWallTime()+this->object_lifetime;
-    if(so.expiretime <= this->next_expire)
-      this->next_expire = so.expiretime;
-    object_list[modelname] = so;
-  }
-}
-
-void ObjectInstantiator::process_objects_temporary(ConstSceneObject_VPtr &_msg) {
-  // remove all previouse models
-  for(it = object_list.begin(); it != object_list.end(); it++) {
-    this->world->rootElement->RemoveChild(it->second.model->GetID());
-  }
-  object_list.clear();
-
-  // add new models
-  for(int n=0; n<_msg->object_type_size(); n++) {
-    sdf::SDF _sdf;
-    std::string sdf_data;
-    sdf_data = objects[_msg->object_type(n)];
-    std::string modelname = set_sdf_values(sdf_data, _msg->name(n), _msg->pos_x(n), _msg->pos_y(n), _msg->pos_z(n), _msg->rot_w(n), _msg->rot_x(n), _msg->rot_y(n), _msg->rot_z(n));
-    SceneObject so;
-    so.type = _msg->object_type(n);
-    so.frame = _msg->frame(n);
-    so.child_frame = _msg->child_frame(n);
-    so.objectid = _msg->objectid(n);
-    _sdf.SetFromString(sdf_data);
-    this->world->InsertModel(_sdf);
-    so.model = this->world->GetModel(modelname);
-    object_list[modelname] = so;
+    if(obj.has_spawntime()) {
+      so.spawntime = common::Time(_msg->spawntime(n));
+    }
+    else {
+      so.spawntime = common::Time::GetWallTime();
+    }
+    so.expiretime = so.spawntime + object_lifetime;
+    if(so.spawntime <= this->next_spawn)
+      this->next_spawn = so.spawntime;
+    if(so.spawntime <= common::Time::GetWallTime()) {
+      if(so.expiretime <= this->next_expire)
+        this->next_expire = so.expiretime;
+      _sdf.SetFromString(sdf_data);
+      this->world->InsertModel(_sdf);
+      so.model = this->world->GetModel(modelname);
+      object_list[modelname] = so;
+    }
+    else {
+      so.sdf_data = sdf_data;
+      object_spawn_list[modelname] = so;
+    }
   }
 }
 
