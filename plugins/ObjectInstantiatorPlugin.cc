@@ -1,27 +1,30 @@
-#include <iostream>;
+#include <iostream>
 
 #include "common/SystemPaths.hh"
+#include "transport/transport.h"
+#include "physics/World.hh"
+#include "physics/Model.hh"
 
 #include "ObjectInstantiatorPlugin.hh"
 
 using namespace gazebo;
 
-ObjectInstantiator::ObjectInstantiator() : WorldPlugin() 
+ObjectInstantiatorPlugin::ObjectInstantiatorPlugin() : WorldPlugin() 
 {
   this->object_lifetime = common::Time(0.5);
 }
 
-void ObjectInstantiator::Init() {
+void ObjectInstantiatorPlugin::Init() {
   this->next_expire = common::Time::GetWallTime();
 }
 
-void ObjectInstantiator::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
+void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
 {
   this->world = _world;
   this->object_count = 0;
 
   this->node = transport::NodePtr(new transport::Node());
-  this->node->Init(this->world->GetName());
+  this->node->Init(_world->GetName());
 
   this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
@@ -49,18 +52,18 @@ void ObjectInstantiator::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
       std::string data;
 
       if(objectElem->HasElement("name")) {
-        if(!objectElem->GetElement("name")->GetValue()->Get(gname)) {
+        if(!objectElem->GetElement("name")->GetValue()->Get(name)) {
       	  gzerr << "<name> is not a string, leaving out this <object>\n";
         }
         else {
           if(objectElem->HasElement("filename")) {
-            std::string filename;
-            if(!objectElem->GetElement("filename")->GetValue()->Get(filename)) {
+            std::string sdf_filename;
+            if(!objectElem->GetElement("filename")->GetValue()->Get(sdf_filename)) {
           	  gzerr << "<filename> is not a string, leaving out this <object>\n";
             }
             
-            std::string _filename = common::SystemPaths::Instance()->FindFileWithGazeboPaths(filename);
-            std::ifstream ifile(_filename);
+            std::string _filename = common::SystemPaths::Instance()->FindFileWithGazeboPaths(sdf_filename);
+            std::ifstream ifile(_filename.c_str());
 
             if(!ifile) {              
           	  gzerr << "\"" << filename << "\" does not exist, leaving out this <object>\n";              
@@ -99,7 +102,7 @@ void ObjectInstantiator::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
   }
 }
 
-void ObjectInstantiator::OnRequestMsg(ConstRequestPtr &_msg) {
+void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
   msgs::Response response;
   response.set_id(_msg->id());
   response.set_request(_msg->request());
@@ -123,7 +126,6 @@ void ObjectInstantiator::OnRequestMsg(ConstRequestPtr &_msg) {
       request.set_request(_msg->request());
       request.set_id(_msg->id());
       request.set_data(src.objectid());
-      fill_object_msg(src);
       std::string *serializedData = response.mutable_serialized_data();
       src.SerializeToString(serializedData);
 
@@ -148,7 +150,7 @@ void ObjectInstantiator::OnRequestMsg(ConstRequestPtr &_msg) {
   }
 }
 
-void ObjectInstantiator::OnUpdate() {
+void ObjectInstantiatorPlugin::OnUpdate() {
   common::Time now = common::Time::GetWallTime();
 
   if(now >= this->next_spawn) {
@@ -157,11 +159,12 @@ void ObjectInstantiator::OnUpdate() {
     std::map< std::string, SceneObject>::iterator it;
     for(it = object_spawn_list.begin(); it != object_spawn_list.end(); it++) {
       if(it->second.spawntime < now) {
+        sdf::SDF _sdf;
         if(it->second.expiretime <= this->next_expire)
           this->next_expire = it->second.expiretime;
         _sdf.SetFromString(it->second.sdf_data);
         this->world->InsertModel(_sdf);
-        it->second.model = this->world->GetModel(modelname);
+        it->second.model = this->world->GetModel(it->first);
         object_list[it->first] = it->second;
         object_spawn_list.erase(it);
       }
@@ -177,7 +180,7 @@ void ObjectInstantiator::OnUpdate() {
     std::map< std::string, SceneObject>::iterator it;
     for(it = object_list.begin(); it != object_list.end(); it++) {
       if(it->second.expiretime < now) {
-        this->world->rootElement->RemoveChild(it->second.model->GetID());
+        it->second.model->GetParent()->RemoveChild(it->first);
         object_list.erase(it);
       }
       else if(it->second.expiretime < this->next_expire) {
@@ -187,50 +190,51 @@ void ObjectInstantiator::OnUpdate() {
   }
 }
 
-bool ObjectInstantiator::fill_object_msg(std::string name, msgs::SceneObject &_msg) {
+bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObject &_msg) {
   std::map< std::string, SceneObject>::iterator it =  object_list.find(name);
   if(it != object_list.end()) {
-    _msg.add_object_type(it->second.type);
+    _msg.set_object_type(it->second.type);
     const math::Pose pose = it->second.model->GetWorldPose();
-    _msg.add_pos_x(pose.pos.x);
-    _msg.add_pos_y(pose.pos.y);
-    _msg.add_pos_z(pose.pos.z);
-    _msg.add_rot_w(pose.rot.w);
-    _msg.add_rot_x(pose.rot.x);
-    _msg.add_rot_y(pose.rot.y);
-    _msg.add_rot_z(pose.rot.z);
-    _msg.add_frame(it->second.frame);
-    _msg.add_child_frame(it->second.child_frame);
-    _msg.add_objectid(it->second.objectid);
-    _msg.add_name(it->first);
+    _msg.set_pos_x(pose.pos.x);
+    _msg.set_pos_y(pose.pos.y);
+    _msg.set_pos_z(pose.pos.z);
+    _msg.set_ori_w(pose.rot.w);
+    _msg.set_ori_x(pose.rot.x);
+    _msg.set_ori_y(pose.rot.y);
+    _msg.set_ori_z(pose.rot.z);
+    _msg.set_frame(it->second.frame);
+    _msg.set_child_frame(it->second.child_frame);
+    _msg.set_objectid(it->second.objectid);
+    _msg.set_name(it->first);
     return true;
   }
   
   return false;
 }
 
-void ObjectInstantiator::fill_list_msg(msgs::String_V &_msg) {
-  std::map< std::string, SceneObject>::iterator it;
+void ObjectInstantiatorPlugin::fill_list_msg(msgs::String_V &_msg) {
+  std::map<std::string, SceneObject>::iterator it;
   for(it = object_list.begin(); it != object_list.end(); it++) {
-    _msg.add_name(it->first);
+    _msg.add_data(it->first);
   }
 }
 
-void ObjectInstantiator::fill_repository_msg(msgs::String_V &_msg) {
-  std::map< std::string, std::string>::iterator it;
+void ObjectInstantiatorPlugin::fill_repository_msg(msgs::String_V &_msg) {
+  std::map<std::string, std::string>::iterator it;
   for(it = objects.begin(); it != objects.end(); it++) {
     _msg.add_data(it->first);
   }
 }
 
-void ObjectInstantiator::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
+void ObjectInstantiatorPlugin::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
   // add new models
   msgs::SceneObject obj;
-  if(_msg->type() != obj.GetTypeName())
+  if(_msg->msgtype() != obj.GetTypeName())
     return;
 
-  for(int n=0; n<_msg->msgdata(); n++) {
-    obj.ParseFromString(_msg->msgdata(n));
+  int n_msgs = _msg->msgsdata_size();
+  for(int n=0; n<n_msgs; n++) {
+    obj.ParseFromString(_msg->msgsdata(n));
     sdf::SDF _sdf;
     std::string sdf_data;
     sdf_data = objects[obj.object_type()];
@@ -240,20 +244,20 @@ void ObjectInstantiator::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
     double oriz = 0.0;
     std::string name = "spawned_object";
     if(obj.has_ori_w())
-      oriw = obj.rot_w();
+      oriw = obj.ori_w();
     if(obj.has_ori_x())
-      orix = obj.rot_x();
+      orix = obj.ori_x();
     if(obj.has_ori_y())
-      oriy = obj.rot_y();
+      oriy = obj.ori_y();
     if(obj.has_ori_z())
-      oriz = obj.rot_z();
+      oriz = obj.ori_z();
     if(obj.has_name())
       name = obj.name();
 
     std::string modelname = set_sdf_values(sdf_data, name, obj.pos_x(), obj.pos_y(), obj.pos_z(), oriw, orix, oriy, oriz);
     SceneObject so;
     so.type = obj.object_type();
-    so.frame = obj.frame(;
+    so.frame = obj.frame();
     so.child_frame = obj.child_frame();
     so.objectid = obj.objectid();
 
@@ -281,51 +285,51 @@ void ObjectInstantiator::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
   }
 }
 
-std::string ObjectInstantiator::set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double ori_w, double ori_x, double ori_y, double ori_z) {
+std::string ObjectInstantiatorPlugin::set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double ori_w, double ori_x, double ori_y, double ori_z) {
   std::ostringstream converter;
   std::string modelname;
   converter << name << "_" << this->object_count;
   modelname = converter.str();
   object_count++;
-  replace(_sdf, "@NAME@", modelname);
+  sdf_replace(_sdf, "@NAME@", modelname);
 
   converter.str("");
   converter << pos_x;
-  replace(_sdf, "@POSX@", converter.str());
+  sdf_replace(_sdf, "@POSX@", converter.str());
 
   converter.str("");
   converter << pos_y;
-  replace(_sdf, "@POSY@", converter.str());
+  sdf_replace(_sdf, "@POSY@", converter.str());
 
   converter.str("");
   converter << pos_z;
-  replace(_sdf, "@POSZ@", converter.str());
+  sdf_replace(_sdf, "@POSZ@", converter.str());
 
   converter.str("");
   converter << ori_w;
-  replace(_sdf, "@ORIW@", converter.str());
+  sdf_replace(_sdf, "@ORIW@", converter.str());
 
   converter.str("");
   converter << ori_x;
-  replace(_sdf, "@ORIX@", converter.str());
+  sdf_replace(_sdf, "@ORIX@", converter.str());
 
   converter.str("");
   converter << ori_y;
-  replace(_sdf, "@ORIY@", converter.str());
+  sdf_replace(_sdf, "@ORIY@", converter.str());
 
   converter.str("");
   converter << ori_z;
-  replace(_sdf, "@ORIZ@", converter.str());
+  sdf_replace(_sdf, "@ORIZ@", converter.str());
 
   return modelname;
 }
 
-void replace(std::string &text, std::string search, std::string replace) {
-  size_t position = text.find(search);
-  size_t length = search.length();
+void ObjectInstantiatorPlugin::sdf_replace(std::string &text, std::string from, std::string to) {
+  size_t position = text.find(from);
+  size_t length = from.length();
   while(position != std::string::npos) {
     text.erase(position, length);
-    text.insert(position, replace);
-    position = text.find(search);
+    text.insert(position, to);
+    position = text.find(from);
   }
 }

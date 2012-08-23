@@ -2,25 +2,27 @@
 #define __GAZEBO_OBJECTINSTANTIATOR_PLUGIN_HH__
 
 #include "gazebo.hh"
-#include "/common/common.h"
+#include "common/common.h"
+#include "transport/TransportTypes.hh"
+#include "physics/PhysicsTypes.hh"
 
 namespace gazebo
 {
-  class ObjectInstantiator : public WorldPlugin
+  class ObjectInstantiatorPlugin : public WorldPlugin
   {
     public:
-      ObjectInstantiator();
+      ObjectInstantiatorPlugin();
 
     private:
       typedef struct {
-          std::string type;
-          ModelPtr    model;
-          std::string sdf_data;
-          std::string frame;
-          std::string child_frame;
-          std::string objectid;
-          common::Time spawntime;
-          common::Time expiretime;
+          std::string         type;
+          physics::ModelPtr   model;
+          std::string         sdf_data;
+          std::string         frame;
+          std::string         child_frame;
+          std::string         objectid;
+          common::Time        spawntime;
+          common::Time        expiretime;
       } SceneObject;
 
       std::map< std::string, SceneObject> object_list;
@@ -34,22 +36,22 @@ namespace gazebo
       common::Time                        object_lifetime,
                                           next_spawn,
                                           next_expire;
+      physics::WorldPtr                   world;
 
     public: 
       void virtual Init();
       void virtual Load(physics::WorldPtr, sdf::ElementPtr);
 
     private:
-      void OnSceneObjectMsg(ConstSceneObject_VPtr &_msg);
+      void OnSceneObjectMsg(ConstMessage_VPtr &_msg);
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnUpdate();
-      void fill_object_v_msg(msgs::SceneObject_V &_msg);
+      bool fill_object_msg(std::string name, msgs::SceneObject &_msg);
+      void fill_list_msg(msgs::String_V &_msg);
       void fill_repository_msg(msgs::String_V &_msg);
-      void process_objects_overlapping(ConstSceneObject_VPtr &_msg);
-      void process_objects_non_overlapping(ConstSceneObject_VPtr &_msg);
-      void process_objects_temporary(ConstSceneObject_VPtr &_msg);
-      std::string set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double rot_w, double rot_x, double rot_y, double rot_z);
-      void replace(std::string &text, std::string search, std::string replace);
+      std::string set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double ori_w, double ori_x, double ori_y, double ori_z);
+      void sdf_replace(std::string &text, std::string from, std::string to);
   };
-  GZ_REGISTER_WORLD_PLUGIN(ObjectInstantiator)
+  GZ_REGISTER_WORLD_PLUGIN(ObjectInstantiatorPlugin)
 } 
+#endif
