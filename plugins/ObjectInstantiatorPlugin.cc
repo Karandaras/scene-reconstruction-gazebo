@@ -258,7 +258,7 @@ void ObjectInstantiator::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
     so.objectid = obj.objectid();
 
     if(obj.has_spawntime()) {
-      so.spawntime = common::Time(_msg->spawntime(n));
+      so.spawntime = common::Time(obj.spawntime());
     }
     else {
       so.spawntime = common::Time::GetWallTime();
