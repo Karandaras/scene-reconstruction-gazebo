@@ -16,10 +16,12 @@ message SceneObject
 	optional double rot_x			        = 6;
 	optional double rot_y			        = 7;
 	optional double rot_z			        = 8;
-  
+
   required string frame             = 9;
   required string child_frame       = 10;
-  optional string objectid          = 11;
+  required string objectid          = 11;
   optional string name              = 12;
+
+  optional double spawntime         = 13;
 }
 

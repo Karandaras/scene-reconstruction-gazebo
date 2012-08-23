@@ -1,0 +1,13 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Message Vector
+/// \brief Message to pass a Vector of messages of the same type
+/// \verbatim
+
+message Message_V
+{
+  required string msgtype           = 1;
+  repeated bytes msgsdata           = 2;
+}
+
