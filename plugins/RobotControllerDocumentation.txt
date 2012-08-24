@@ -1,21 +1,25 @@
 RobotControllerPlugin Documentation
 
 rcjoint Element (required)(1..n)
+    string to identify the childs of this rcjoint (no spaces allowed)
 
-gname Element (required)(string)
+  gname_* Element (required)(string)
+    (replace * by the string encapsulated by rcjoint)
     Name of Joint in the Model
 
-fname Element (optional, defaults to gname)(string)
+  fname_* Element (optional, defaults to gname)(string)
+    (replace * by the string encapsulated by rcjoint)
     Name of Joint in the stored data
 
-offset Element (optional, defaults to 0) (double)
+  offset_* Element (optional, defaults to 0) (double)
+    (replace * by the string encapsulated by rcjoint)
     Offset between Model and data
 
 
 
 Example
-<rcjoint>
-	<gname>Name</gname>
-	<fname>Another Name</fname>
-	<offset>0.0</offset>
-</rcjoint>
+<rcjoint>1</rcjoint>
+	<gname_1>Name</gname_1>
+	<fname_1>Another Name</fname_1>
+	<offset_1>0.0</offset_1>
+

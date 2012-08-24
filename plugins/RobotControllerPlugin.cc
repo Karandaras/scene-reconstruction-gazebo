@@ -30,56 +30,59 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
     gzerr << "missing <rcjoint> element(s)\n";
   else {
     jointElem = _sdf->GetElement("rcjoint");
+    std::string rcjoint;
     while(jointElem) {
       std::string gname;
       std::string fname;
       std::string offtmp;
       double off;
 
-      if(jointElem->HasElement("gname")) {
-	if(!jointElem->GetElement("gname")->GetValue()->Get(gname)) {
-	  gzerr << "<gname> is not a string, leaving out this <rcjoint>\n";
-	} else {
-          if(jointElem->HasElement("fname")) {
-	    if(!jointElem->GetElement("fname")->GetValue()->Get(fname)) {
-                gzerr << "<fname> not a string, defaulting to gname:" << gname << "\n";
-	      fname = gname;
+      jointElem->GetValue()->Get(rcjoint);
+
+      if(_sdf->HasElement("gname_"+rcjoint)) {
+        if(!_sdf->GetElement("gname_"+rcjoint)->GetValue()->Get(gname)) {
+          gzerr << "<gname_" << rcjoint << "> is not a string, leaving out this <rcjoint>\n";
+        } else {
+          if(_sdf->HasElement("fname_"+rcjoint)) {
+            if(!_sdf->GetElement("fname_"+rcjoint)->GetValue()->Get(fname)) {
+              gzerr << "<fname_" << rcjoint << "> not a string, defaulting to gname:" << gname << "\n";
+            fname = gname;
             }
-	  } else {
-	    fname = gname;
-	  }
-	  if(jointElem->HasElement("offset")) {
-	    if(!jointElem->GetElement("offset")->GetValue()->Get(offtmp)) {
-              gzerr << "<offset> not a double, defaulting to 0.0\n";
+          } else {
+            fname = gname;
+          }
+          if(_sdf->HasElement("offset_"+rcjoint)) {
+            if(!_sdf->GetElement("offset_"+rcjoint)->GetValue()->Get(offtmp)) {
+              gzerr << "<offset_" << rcjoint << "> not a string, defaulting to 0.0\n";
               off = 0.0;
-	    }
+            }
             else {
               char* t;
-	      off = strtod(offtmp.c_str(), &t);
+              off = strtod(offtmp.c_str(), &t);
               if(*t != 0) {
-		gzerr << "<offset> not a double, defaulting to 0.0\n";
-		off = 0.0;
+                gzerr << "<offset_" << rcjoint << "> not a double, defaulting to 0.0\n";
+                off = 0.0;
               }  
             }
-	  } else {
-	    off = 0.0;
-	  }
-	  
-	  physics::JointPtr j = _model->GetJoint(gname);
-	  if(!j) {
-	    gzerr << "unable to find joint " << gname << "\n";
-	  } else {
-  	    double simangle = j->GetAngle(0).GetAsRadian();
+          } else {
+            off = 0.0;
+          }
+
+          physics::JointPtr j = _model->GetJoint(gname);
+          if(!j) {
+            gzerr << "unable to find joint " << gname << "\n";
+          } else {
+            double simangle = j->GetAngle(0).GetAsRadian();
 
             this->jointdata[fname].simulator_name = gname;
-	    this->jointdata[fname].robot_name = fname;
-	    this->jointdata[fname].offset = off;
+            this->jointdata[fname].robot_name = fname;
+            this->jointdata[fname].offset = off;
             this->jointdata[fname].simulator_angle = simangle;
             this->jointdata[fname].robot_angle = simangle-off;
           }
         }
       } else {
-        gzerr << "missing required element <gname>\n";
+        gzerr << "missing required element <gname_" << rcjoint << ">, leaving out this <rcjoint>\n";
       }
       jointElem = jointElem->GetNextElement("rcjoint");
     }
