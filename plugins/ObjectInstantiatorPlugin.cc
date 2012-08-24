@@ -30,36 +30,34 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/ObjectInstantiator/Request"));
 
-  sdf::ElementPtr settingsElem;
-  if (_sdf->HasElement("settings")) {
-    settingsElem = _sdf->GetElement("settings");
-    if(settingsElem->HasElement("object_lifetime")) {
-      double lifetime;
-      if(!settingsElem->GetElement("object_lifetime")->GetValue()->Get(lifetime)) {
-    	  gzerr << "<object_lifetime> is not a double, defaulting to 0.5 seconds\n";
-      }
-      else {
-        this->object_lifetime = common::Time(lifetime);
-      }
+  if(_sdf->HasElement("settings_lifetime")) {
+    double lifetime;
+    if(!_sdf->GetElement("settings_lifetime")->GetValue()->Get(lifetime)) {
+  	  gzerr << "<settings_lifetime> is not a double, defaulting to 0.5 seconds\n";
+    }
+    else {
+      this->object_lifetime = common::Time(lifetime);
     }
   }
 
   sdf::ElementPtr objectElem;
   if (_sdf->HasElement("object")) {
     objectElem = _sdf->GetElement("object");
+    int object;
     while(objectElem) {
+      _sdf->GetElement("object")->GetValue()->Get(object);
       std::string name;
       std::string data;
 
-      if(objectElem->HasElement("name")) {
-        if(!objectElem->GetElement("name")->GetValue()->Get(name)) {
-      	  gzerr << "<name> is not a string, leaving out this <object>\n";
+      if(_sdf->HasElement("name_"+object)) {
+        if(!_sdf->GetElement("name_"+object)->GetValue()->Get(name)) {
+      	  gzerr << "<name_" << object << "> is not a string, leaving out this <object>\n";
         }
         else {
-          if(objectElem->HasElement("filename")) {
+          if(_sdf->HasElement("filename_"+object)) {
             std::string sdf_filename;
-            if(!objectElem->GetElement("filename")->GetValue()->Get(sdf_filename)) {
-          	  gzerr << "<filename> is not a string, leaving out this <object>\n";
+            if(!_sdf->GetElement("filename_"+object)->GetValue()->Get(sdf_filename)) {
+          	  gzerr << "<filename_" << object << "> is not a string, leaving out this <object>\n";
             }
             
             std::string _filename = common::SystemPaths::Instance()->FindFileWithGazeboPaths(sdf_filename);
@@ -81,21 +79,13 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
               ifile.close();
             }
           }
-          else if(objectElem->HasElement("data")) {
-            if(!objectElem->GetElement("data")->GetValue()->Get(data)) {
-          	  gzerr << "<data> is not a string, leaving out this <object>\n";
-            }
-            else {
-              objects[name] = data;
-            }
-          }
           else {
-        	  gzerr << "neither <filename> nor <data> available, leaving out this <object>\n";
+        	  gzerr << "missing required element <filename_" << object << ">, leaving out this <object>\n";
           }
         }
       }
       else {
-      	gzerr << "missing required element <name>\n";
+      	gzerr << "missing required element <name_" << object << ">, leaving out this <object>\n";
       }
       objectElem = objectElem->GetNextElement("object");
     }

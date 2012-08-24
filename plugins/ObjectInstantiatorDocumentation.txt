@@ -1,26 +1,25 @@
 ObjectInstantiatorPlugin Documentation
 
-settings Element (optional)
-  object_lifetime Element (optional)(double) (default 0.5 seconds)
-      Time after which an object gets deleted, set this to the 
-      time that passes between checks for new objects for best
-      results
+settings Elements
+
+settings_lifetime Element (optional)(double) (default 0.5 seconds)
+    Time after which an object gets deleted, set this to the 
+    time that passes between checks for new objects for best
+    results
 
 
 object Element (required)(1..n)
+    string to identify the childs of this rcjoint (no spaces allowed)
 
-  name Element (required)(string)
-      Name of the Object for the repository
+  name_* Element (required)(string)
+    (replace * by the string encapsulated by rcjoint)
+    Name of the Object for the repository
 
-  data Element (required*)(string)
-      sdf data of the object
-
-  filename Element (required*)(string)
-      filename of a file containing the sdf data of the model
-      either use full path or place the file inside the
-      GAZEBO_RESOURCE_PATH
-
-*either data or filename has to be set
+  filename_* Element (required)(string)
+    (replace * by the string encapsulated by rcjoint)
+    filename of a file containing the sdf data of the model
+    either use full path or place the file inside the
+    GAZEBO_RESOURCE_PATH
 
 The following placeholder can be used inside the sdf file or string
 and will be replaced by the data included in the message
@@ -35,11 +34,9 @@ and will be replaced by the data included in the message
 
 
 Example
-<settings>
-  <object_lifetime>0.5</object_lifetime>
-</settings>
-<object>
-  <name>Cup</name>
-  <filename>cup.model</filename>
-</object>
+<settings_lifetime>0.5</settings_lifetime>
+<object>1</object>
+  <name_1>Cup</name_1>
+  <filename_1>cup.model</filename_1>
+
 
