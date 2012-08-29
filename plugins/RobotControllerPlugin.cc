@@ -22,7 +22,9 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->jointSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Joint"), &RobotControllerPlugin::OnSceneJointMsg, this);
   this->changeJointSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Joint/setup"), &RobotControllerPlugin::OnSceneChangeMsg, this);
   this->srguiSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Request"), &RobotControllerPlugin::OnRequestMsg, this);
+  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request"), &RobotControllerPlugin::OnStatusMsg, this);
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/RobotController/Response"));
+  this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
 
   sdf::ElementPtr jointElem;
 
@@ -53,7 +55,7 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
           }
           if(_sdf->HasElement("offset_"+rcjoint)) {
             if(!_sdf->GetElement("offset_"+rcjoint)->GetValue()->Get(offtmp)) {
-              gzerr << "<offset_" << rcjoint << "> not a string, defaulting to 0.0\n";
+              gzerr << "<offset_" << rcjoint << "> not readable, defaulting to 0.0\n";
               off = 0.0;
             }
             else {
@@ -87,6 +89,12 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
       jointElem = jointElem->GetNextElement("rcjoint");
     }
   }
+
+  msgs::Response response;
+  response.set_id(-1);
+  response.set_request("status");
+  response.set_response("RobotController");
+  this->statusPub->Publish(response);
 }
 
 /////////////////////////////////////////////////
@@ -95,30 +103,30 @@ void RobotControllerPlugin::Init()
 }
 /////////////////////////////////////////////////
 void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg) {
-      std::map<std::string,double> positions;
-      int sn, rn, o, sa, ra;
-      sn = _msg->simulator_name_size();
-      rn = _msg->robot_name_size();
-      o  = _msg->offset_size();
-      sa = _msg->simulator_angle_size();
-      ra = _msg->robot_angle_size();
+  std::map<std::string,double> positions;
+  int sn, rn, o, sa, ra;
+  sn = _msg->simulator_name_size();
+  rn = _msg->robot_name_size();
+  o  = _msg->offset_size();
+  sa = _msg->simulator_angle_size();
+  ra = _msg->robot_angle_size();
 
-      if(sn == rn && rn == o && o == sa && sa == ra && ra == sn) {
-        for(int i=0; i<sn; i++) {
-          jointiter = jointdata.find(_msg->robot_name(i));
-	  jointiter->second.simulator_name = _msg->simulator_name(i);
-          jointiter->second.offset = _msg->offset(i);
-          jointiter->second.simulator_angle = _msg->simulator_angle(i);
-          jointiter->second.robot_angle = _msg->robot_angle(i);
-          positions[jointiter->second.simulator_name] = jointiter->second.simulator_angle;
-        }
+  if(sn == rn && rn == o && o == sa && sa == ra && ra == sn) {
+    for(int i=0; i<sn; i++) {
+      jointiter = jointdata.find(_msg->robot_name(i));
+      jointiter->second.simulator_name = _msg->simulator_name(i);
+      jointiter->second.offset = _msg->offset(i);
+      jointiter->second.simulator_angle = _msg->simulator_angle(i);
+      jointiter->second.robot_angle = _msg->robot_angle(i);
+      positions[jointiter->second.simulator_name] = jointiter->second.simulator_angle;
+    }
 
-	jointiter = jointdata.end();
-        this->model->SetJointPositions(positions);
-      }
-      else {
-	gzerr << "not all fields set for all joints\n";
-      }
+    jointiter = jointdata.end();
+    this->model->SetJointPositions(positions);
+  }
+  else {
+    gzerr << "not all fields set for all joints\n";
+  }
 }
 
 /////////////////////////////////////////////////
@@ -132,7 +140,7 @@ void RobotControllerPlugin::OnSceneJointMsg(ConstSceneJointPtr &_msg) {
         this->jointiter = this->jointdata.find(_msg->joint(i));
         if(this->jointiter != jointdata.end()) {
           positions[this->jointiter->second.simulator_name] = this->jointiter->second.offset+_msg->angle(i);
- 	  this->jointiter->second.simulator_angle = this->jointiter->second.offset+_msg->angle(i);
+ 	        this->jointiter->second.simulator_angle = this->jointiter->second.offset+_msg->angle(i);
           this->jointiter->second.robot_angle = _msg->angle(i);
         }
       }
@@ -150,8 +158,10 @@ void RobotControllerPlugin::OnSceneJointMsg(ConstSceneJointPtr &_msg) {
 }
 
 void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
+  msgs::Response response;
+  response.set_id(_msg->id());
+  response.set_request(_msg->request());
   if(_msg->request() == "controller_info") {
-    msgs::Response response;
     msgs::SceneRobotController src;
     response.set_id(_msg->id());
     response.set_request(_msg->request());
@@ -179,6 +189,24 @@ void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 
     this->srguiPub->Publish(response);
   }
+  else {
+    response.set_response("unknown");
+    msgs::String src;
+    response.set_type(src.GetTypeName());
+    src.set_data("the given request is unknown to the robotcontroller");
+    std::string *serializedData = response.mutable_serialized_data();
+    src.SerializeToString(serializedData);
+    this->srguiPub->Publish(response);
+  }
 }
 
+void RobotControllerPlugin::OnStatusMsg(ConstRequestPtr &_msg) {
+  if(_msg->request() == "status") {
+    msgs::Response response;
+    response.set_id(_msg->id());
+    response.set_request(_msg->request());
+    response.set_response("RobotController");
+    this->statusPub->Publish(response);
+  }
+}
 

@@ -18,21 +18,31 @@ namespace gazebo
         double robot_angle;
     } JointData;
 
-    public: RobotControllerPlugin();
-    public: virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
-    public: virtual void Init();
+    public: 
+      RobotControllerPlugin();
 
-    private: void OnSceneJointMsg(ConstSceneJointPtr &_msg);
-    private: void OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg);
-    private: void OnRequestMsg(ConstRequestPtr &_msg);
+    private:
+      transport::NodePtr                          node;
+      transport::SubscriberPtr                    jointSub, 
+                                                  srguiSub,
+                                                  changeJointSub,
+                                                  statusSub;
+      transport::PublisherPtr                     srguiPub,
+                                                  statusPub;
 
-    private: transport::NodePtr node;
-    private: transport::SubscriberPtr jointSub, srguiSub, changeJointSub;
-    private: transport::PublisherPtr srguiPub;
+      physics::ModelPtr                           model;
+      std::map<std::string, JointData>            jointdata;
+      std::map<std::string, JointData>::iterator  jointiter;
 
-    private: physics::ModelPtr model;
-    private: std::map<std::string, JointData> jointdata;
-    private: std::map<std::string, JointData>::iterator jointiter;
+    public: 
+      virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
+      virtual void Init();
+
+    private:
+      void OnSceneJointMsg(ConstSceneJointPtr &_msg);
+      void OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg);
+      void OnRequestMsg(ConstRequestPtr &_msg);
+      void OnStatusMsg(ConstRequestPtr &_msg);
   };
 }
 #endif
