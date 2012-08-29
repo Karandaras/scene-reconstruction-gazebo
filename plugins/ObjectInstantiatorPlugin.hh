@@ -1,6 +1,8 @@
 #ifndef __GAZEBO_OBJECTINSTANTIATOR_PLUGIN_HH__
 #define __GAZEBO_OBJECTINSTANTIATOR_PLUGIN_HH__
 
+#include <boost/thread/mutex.hpp>
+
 #include "gazebo.hh"
 #include "common/common.h"
 #include "transport/TransportTypes.hh"
@@ -29,23 +31,32 @@ namespace gazebo
       std::map< std::string, SceneObject> object_spawn_list;
       std::map< std::string, std::string> objects;
       transport::NodePtr                  node;
-      transport::SubscriberPtr            objectSub;
+      transport::SubscriberPtr            objectSub,
+                                          statusSub;
       transport::PublisherPtr             srguiPub,
-                                          framePub;
+                                          framePub,
+                                          statusPub;
       unsigned int                        object_count;
       common::Time                        object_lifetime,
                                           next_spawn,
                                           next_expire;
       physics::WorldPtr                   world;
+      boost::mutex                       *receiveMutex;
+      std::list<msgs::Message_V>          objectMsgs;
 
     public: 
       void virtual Init();
+      void virtual Reset();
       void virtual Load(physics::WorldPtr, sdf::ElementPtr);
 
     private:
       void OnSceneObjectMsg(ConstMessage_VPtr &_msg);
       void OnRequestMsg(ConstRequestPtr &_msg);
+      void OnStatusMsg(ConstRequestPtr &_msg);
       void OnUpdate();
+      void ProcessSceneObjectMsgs();
+      void SpawnObjects(common::Time now);
+      void DeleteObjects(common::Time now);
       bool fill_object_msg(std::string name, msgs::SceneObject &_msg);
       void fill_list_msg(msgs::String_V &_msg);
       void fill_repository_msg(msgs::String_V &_msg);

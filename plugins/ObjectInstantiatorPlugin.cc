@@ -12,10 +12,20 @@ using namespace gazebo;
 ObjectInstantiatorPlugin::ObjectInstantiatorPlugin() : WorldPlugin() 
 {
   this->object_lifetime = common::Time(0.5);
+  this->receiveMutex = new boost::mutex();
 }
 
 void ObjectInstantiatorPlugin::Init() {
   this->next_expire = common::Time::GetWallTime();
+  this->next_spawn = common::Time::GetWallTime();
+}
+
+void ObjectInstantiatorPlugin::Reset() {
+  this->next_expire = common::Time::GetWallTime();
+  this->objectMsgs.clear();
+  this->object_list.clear();
+  this->object_spawn_list.clear();
+  this->object_count = 0;
 }
 
 void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
@@ -27,16 +37,26 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->node->Init(_world->GetName());
 
   this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
+  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
-  this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/ObjectInstantiator/Request"));
+  this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
+  this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
 
   if(_sdf->HasElement("settings_lifetime")) {
+    std::string tmplifetime;
     double lifetime;
-    if(!_sdf->GetElement("settings_lifetime")->GetValue()->Get(lifetime)) {
-  	  gzerr << "<settings_lifetime> is not a double, defaulting to 0.5 seconds\n";
+    if(!_sdf->GetElement("settings_lifetime")->GetValue()->Get(tmplifetime)) {
+  	  gzerr << "<settings_lifetime> is not readable, defaulting to 0.5 seconds\n";
     }
     else {
-      this->object_lifetime = common::Time(lifetime);
+      char* t;
+      lifetime = strtod(tmplifetime.c_str(), &t);
+      if(*t != 0) {
+        gzerr << "<settings_lifetime> not a double, defaulting to 0.5 seconds\n";
+      }
+      else {
+        this->object_lifetime = lifetime;
+      }
     }
   }
 
@@ -90,9 +110,17 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
       objectElem = objectElem->GetNextElement("object");
     }
   }
+
+  msgs::Response response;
+  response.set_id(-1);
+  response.set_request("status");
+  response.set_response("ObjectInstantiator");
+  this->statusPub->Publish(response);
 }
 
 void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+
   msgs::Response response;
   response.set_id(_msg->id());
   response.set_request(_msg->request());
@@ -109,23 +137,27 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
   }
   else if(_msg->request() == "object_data") {
     response.set_response("success");
-    msgs::SceneObject src;
-    response.set_type(src.GetTypeName());
-    if(_msg->has_data() && fill_object_msg(_msg->data(), src)) {
+    msgs::SceneObject scob;
+    response.set_type(scob.GetTypeName());
+    if(_msg->has_data() && fill_object_msg(_msg->data(), scob)) {
       msgs::Request request;
       request.set_request(_msg->request());
       request.set_id(_msg->id());
-      request.set_data(src.objectid());
+      request.set_data(scob.objectid());
       std::string *serializedData = response.mutable_serialized_data();
-      src.SerializeToString(serializedData);
+      scob.SerializeToString(serializedData);
 
       this->framePub->Publish(request);
       this->srguiPub->Publish(response);
     }
     else {
-      std::ostringstream tmp;
-      tmp << "failure: " << _msg->data() << " not an object known to the objectinstantiator";
-      response.set_response(tmp.str());
+      response.set_response("failure");
+      msgs::String src;
+      response.set_type(src.GetTypeName());
+      src.set_data(_msg->data()+" not an object known to the objectinstantiator");
+      std::string *serializedData = response.mutable_serialized_data();
+      src.SerializeToString(serializedData);
+
       this->srguiPub->Publish(response);
     }
   }
@@ -138,10 +170,36 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 
     this->srguiPub->Publish(response);
   }
+  else {
+    response.set_response("unknown");
+    msgs::String src;
+    response.set_type(src.GetTypeName());
+    src.set_data("the given request is unknown to the objectinstantiator");
+    std::string *serializedData = response.mutable_serialized_data();
+    src.SerializeToString(serializedData);
+    this->srguiPub->Publish(response);
+  }
+}
+
+void ObjectInstantiatorPlugin::OnStatusMsg(ConstRequestPtr &_msg) {
+  if(_msg->request() == "status") {
+    msgs::Response response;
+    response.set_id(_msg->id());
+    response.set_request(_msg->request());
+    response.set_response("ObjectInstantiator");
+    this->statusPub->Publish(response);
+  }
 }
 
 void ObjectInstantiatorPlugin::OnUpdate() {
   common::Time now = common::Time::GetWallTime();
+  this->ProcessSceneObjectMsgs();
+  this->SpawnObjects(now);
+  this->DeleteObjects(now);
+}
+
+void ObjectInstantiatorPlugin::SpawnObjects(common::Time now) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
 
   if(now >= this->next_spawn) {
     common::Time old_spawn = this->next_spawn;
@@ -163,6 +221,10 @@ void ObjectInstantiatorPlugin::OnUpdate() {
       }
     }
   }
+}
+
+void ObjectInstantiatorPlugin::DeleteObjects(common::Time now) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
 
   if(now >= this->next_expire) {
     common::Time old_expire = this->next_expire;
@@ -217,62 +279,72 @@ void ObjectInstantiatorPlugin::fill_repository_msg(msgs::String_V &_msg) {
 }
 
 void ObjectInstantiatorPlugin::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
-  // add new models
-  msgs::SceneObject obj;
-  if(_msg->msgtype() != obj.GetTypeName())
-    return;
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  this->objectMsgs.push_back(*_msg);
+}
 
-  int n_msgs = _msg->msgsdata_size();
-  for(int n=0; n<n_msgs; n++) {
-    obj.ParseFromString(_msg->msgsdata(n));
-    sdf::SDF _sdf;
-    std::string sdf_data;
-    sdf_data = objects[obj.object_type()];
-    double oriw = 0.0;
-    double orix = 0.0;
-    double oriy = 0.0;
-    double oriz = 0.0;
-    std::string name = "spawned_object";
-    if(obj.has_ori_w())
-      oriw = obj.ori_w();
-    if(obj.has_ori_x())
-      orix = obj.ori_x();
-    if(obj.has_ori_y())
-      oriy = obj.ori_y();
-    if(obj.has_ori_z())
-      oriz = obj.ori_z();
-    if(obj.has_name())
-      name = obj.name();
+void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  std::list<msgs::Message_V>::iterator _msg;
+  for (_msg = this->objectMsgs.begin(); _msg != this->objectMsgs.end(); ++_msg) {
+    // add new models
+    msgs::SceneObject obj;
+    if(_msg->msgtype() == obj.GetTypeName()) {
+      int n_msgs = _msg->msgsdata_size();
+      for(int n=0; n<n_msgs; n++) {
+        obj.ParseFromString(_msg->msgsdata(n));
+        sdf::SDF _sdf;
+        std::string sdf_data;
+        sdf_data = objects[obj.object_type()];
+        double oriw = 0.0;
+        double orix = 0.0;
+        double oriy = 0.0;
+        double oriz = 0.0;
+        std::string name = "spawned_object";
+        if(obj.has_ori_w())
+          oriw = obj.ori_w();
+        if(obj.has_ori_x())
+          orix = obj.ori_x();
+        if(obj.has_ori_y())
+          oriy = obj.ori_y();
+        if(obj.has_ori_z())
+          oriz = obj.ori_z();
+        if(obj.has_name())
+          name = obj.name();
 
-    std::string modelname = set_sdf_values(sdf_data, name, obj.pos_x(), obj.pos_y(), obj.pos_z(), oriw, orix, oriy, oriz);
-    SceneObject so;
-    so.type = obj.object_type();
-    so.frame = obj.frame();
-    so.child_frame = obj.child_frame();
-    so.objectid = obj.objectid();
+        std::string modelname = set_sdf_values(sdf_data, name, obj.pos_x(), obj.pos_y(), obj.pos_z(), oriw, orix, oriy, oriz);
+        SceneObject so;
+        so.type = obj.object_type();
+        so.frame = obj.frame();
+        so.child_frame = obj.child_frame();
+        so.objectid = obj.objectid();
 
-    if(obj.has_spawntime()) {
-      so.spawntime = common::Time(obj.spawntime());
-    }
-    else {
-      so.spawntime = common::Time::GetWallTime();
-    }
-    so.expiretime = so.spawntime + object_lifetime;
-    if(so.spawntime <= this->next_spawn)
-      this->next_spawn = so.spawntime;
-    if(so.spawntime <= common::Time::GetWallTime()) {
-      if(so.expiretime <= this->next_expire)
-        this->next_expire = so.expiretime;
-      _sdf.SetFromString(sdf_data);
-      this->world->InsertModel(_sdf);
-      so.model = this->world->GetModel(modelname);
-      object_list[modelname] = so;
-    }
-    else {
-      so.sdf_data = sdf_data;
-      object_spawn_list[modelname] = so;
+        if(obj.has_spawntime()) {
+          so.spawntime = common::Time(obj.spawntime());
+        }
+        else {
+          so.spawntime = common::Time::GetWallTime();
+        }
+        so.expiretime = so.spawntime + object_lifetime;
+        if(so.spawntime <= this->next_spawn)
+          this->next_spawn = so.spawntime;
+        if(so.spawntime <= common::Time::GetWallTime()) {
+          if(so.expiretime <= this->next_expire)
+            this->next_expire = so.expiretime;
+          _sdf.SetFromString(sdf_data);
+          this->world->InsertModel(_sdf);
+          so.model = this->world->GetModel(modelname);
+          object_list[modelname] = so;
+        }
+        else {
+          so.sdf_data = sdf_data;
+          object_spawn_list[modelname] = so;
+        }
+      }
     }
   }
+
+  objectMsgs.clear();
 }
 
 std::string ObjectInstantiatorPlugin::set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double ori_w, double ori_x, double ori_y, double ori_z) {
