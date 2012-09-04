@@ -66,11 +66,13 @@ set (msgs axis.proto
           pose_animation.proto
           joint_animation.proto
           joint_cmd.proto
-	  scene_joint.proto
-	  scene_robotcontroller.proto
-    scene_object.proto
-    message_v.proto
-    scene_object_data.proto
+          scene_joint.proto
+          scene_robotcontroller.proto
+          scene_object.proto
+          message_v.proto
+          scene_object_data.proto
+          scene_images.proto
+          double.proto
 )
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

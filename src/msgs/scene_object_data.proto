@@ -5,10 +5,13 @@ package gazebo.msgs;
 /// \brief Objectdata for the ObjectInstantiatorPlugin from the Framework
 /// \verbatim
 
+import "scene_images.proto";
+
 message SceneObjectData
 {
   required string objectid          = 1;
-  repeated bytes images             = 2;
-  repeated string image_names       = 3;
+  required string collection        = 2;
+  optional string data              = 3;
+  optional SceneImages image        = 4;
 }
 

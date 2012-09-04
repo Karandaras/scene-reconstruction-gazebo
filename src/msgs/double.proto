@@ -1,0 +1,14 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Double 
+/// \brief Double message
+/// \verbatim
+
+message Double
+{
+  /// Integer data
+  required double data = 1;
+}
+
+/// \endverbatim

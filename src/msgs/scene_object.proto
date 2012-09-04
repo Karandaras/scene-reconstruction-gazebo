@@ -19,7 +19,7 @@ message SceneObject
 
   required string frame             = 9;
   required string child_frame       = 10;
-  required string objectid          = 11;
+  required string objectids         = 11;
   optional string name              = 12;
 
   optional double spawntime         = 13;
