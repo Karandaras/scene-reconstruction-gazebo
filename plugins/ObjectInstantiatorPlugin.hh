@@ -22,7 +22,7 @@ namespace gazebo
           std::string         sdf_data;
           std::string         frame;
           std::string         child_frame;
-          std::string         objectid;
+          std::string         objectids;
           common::Time        spawntime;
           common::Time        expiretime;
       } SceneObject;

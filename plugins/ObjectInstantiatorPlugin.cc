@@ -37,7 +37,7 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->node->Init(_world->GetName());
 
   this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
-  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
+  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/ObjectInstantiator"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
@@ -143,7 +143,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
       msgs::Request request;
       request.set_request(_msg->request());
       request.set_id(_msg->id());
-      request.set_data(scob.objectid());
+      request.set_data(scob.objectids());
       std::string *serializedData = response.mutable_serialized_data();
       scob.SerializeToString(serializedData);
 
@@ -256,7 +256,7 @@ bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObje
     _msg.set_ori_z(pose.rot.z);
     _msg.set_frame(it->second.frame);
     _msg.set_child_frame(it->second.child_frame);
-    _msg.set_objectid(it->second.objectid);
+    _msg.set_objectids(it->second.objectids);
     _msg.set_name(it->first);
     return true;
   }
@@ -317,7 +317,7 @@ void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
         so.type = obj.object_type();
         so.frame = obj.frame();
         so.child_frame = obj.child_frame();
-        so.objectid = obj.objectid();
+        so.objectids = obj.objectids();
 
         if(obj.has_spawntime()) {
           so.spawntime = common::Time(obj.spawntime());
