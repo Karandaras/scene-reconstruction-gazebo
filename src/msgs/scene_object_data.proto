@@ -9,9 +9,7 @@ import "scene_images.proto";
 
 message SceneObjectData
 {
-  required string objectid          = 1;
-  required string collection        = 2;
-  optional string data              = 3;
-  optional SceneImages image        = 4;
+  required string objectids         = 1;
+  repeated SceneImages images       = 2;
 }
 

@@ -10,6 +10,7 @@ import "image.proto";
 message SceneImages
 {
   required string objectid          = 1;
-  repeated Image images             = 2;
+  required string name              = 2;
+  required Image image              = 3;
 }
 
