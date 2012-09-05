@@ -192,6 +192,9 @@ void ObjectInstantiatorPlugin::OnStatusMsg(ConstRequestPtr &_msg) {
 }
 
 void ObjectInstantiatorPlugin::OnUpdate() {
+  if(this->world->IsPaused())
+    return;
+
   common::Time now = common::Time::GetWallTime();
   this->ProcessSceneObjectMsgs();
   this->SpawnObjects(now);
