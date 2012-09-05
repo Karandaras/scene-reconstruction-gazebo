@@ -100,7 +100,81 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
 /////////////////////////////////////////////////
 void RobotControllerPlugin::Init()
 {
+  this->next_control = common::Time::GetWallTime();
 }
+
+/////////////////////////////////////////////////
+void RobotControllerPlugin::OnUpdate()
+{
+  if(this->model->GetWorld()->IsPaused())
+    return;
+
+  common::Time now = common::Time::GetWallTime();
+  this->ProcessJointMsgs();
+  this->ControlRobot(now);
+}
+
+void RobotControllerPlugin::ControlRobot(common::Time now) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  if(now >= this->next_control) {
+    common::Time old_control = this->next_control;
+    this->next_control = now + common::Time(1);
+    std::list< ControlCommand >::iterator it;
+    for(it = controlList.begin(); it != controlList.end(); it++) {
+      if(it->controltime < now) {
+        this->model->SetJointPositions(it->positions);
+        controlList.erase(it);
+      }
+      else if(it->controltime < this->next_control) {
+        this->next_control = it->controltime;
+      }
+    }
+  }
+}
+
+void RobotControllerPlugin::ProcessJointMsgs() {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  std::list<msgs::Message_V>::iterator _msg;
+  for (_msg = this->controlMsgs.begin(); _msg != this->controlMsgs.end(); ++_msg) {
+    msgs::SceneJoint joint;
+    if(_msg->msgtype() == joint.GetTypeName()) {
+      int n_msgs = _msg->msgsdata_size();
+      for(int n=0; n<n_msgs; n++) {
+        joint.ParseFromString(_msg->msgsdata(n));
+        std::map<std::string,double> positions;
+
+        int joints = joint.joint_size();
+        if(joints <= (int)this->model->GetJointCount()) {
+          if(joints == joint.angle_size()) {
+            for(int i=0; i<joints; i++) {
+              this->jointiter = this->jointdata.find(joint.joint(i));
+              if(this->jointiter != jointdata.end()) {
+                positions[this->jointiter->second.simulator_name] = this->jointiter->second.offset+joint.angle(i);
+       	        this->jointiter->second.simulator_angle = this->jointiter->second.offset+joint.angle(i);
+                this->jointiter->second.robot_angle = joint.angle(i);
+              }
+            }
+            this->jointiter = this->jointdata.end();
+
+            ControlCommand c;
+            if(joint.has_time())
+              c.controltime = common::Time(joint.time());
+            else
+              c.controltime = common::Time::GetWallTime();
+            c.positions = positions;
+
+            this->controlList.push_back(c);
+          } else {
+            gzerr << "number of joints differs from number of angles\n";
+          }
+        } else {
+          gzerr << "message tries to alter more joints then available\n";
+        }
+      }
+    }
+  }
+}
+
 /////////////////////////////////////////////////
 void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg) {
   std::map<std::string,double> positions;
@@ -130,31 +204,9 @@ void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg)
 }
 
 /////////////////////////////////////////////////
-void RobotControllerPlugin::OnSceneJointMsg(ConstSceneJointPtr &_msg) {
-  std::map<std::string,double> positions;
-
-  int joints = _msg->joint_size();
-  if(joints <= (int)this->model->GetJointCount()) {
-    if(joints == _msg->angle_size()) {
-      for(int i=0; i<joints; i++) {
-        this->jointiter = this->jointdata.find(_msg->joint(i));
-        if(this->jointiter != jointdata.end()) {
-          positions[this->jointiter->second.simulator_name] = this->jointiter->second.offset+_msg->angle(i);
- 	        this->jointiter->second.simulator_angle = this->jointiter->second.offset+_msg->angle(i);
-          this->jointiter->second.robot_angle = _msg->angle(i);
-        }
-      }
-      this->jointiter = this->jointdata.end();
-
-      this->model->SetJointPositions(positions);
-    } else {
-      gzerr << "number of joints differs from number of angles\n";
-    }
-  } else {
-    gzerr << "message tries to alter more joints then available\n";
-  }
-  
-  positions.clear();
+void RobotControllerPlugin::OnSceneJointMsg(ConstMessage_VPtr &_msg) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  controlMsgs.push_back(*_msg);
 }
 
 void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
@@ -209,4 +261,3 @@ void RobotControllerPlugin::OnStatusMsg(ConstRequestPtr &_msg) {
     this->statusPub->Publish(response);
   }
 }
-
