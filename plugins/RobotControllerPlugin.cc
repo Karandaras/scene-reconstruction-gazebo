@@ -1,3 +1,5 @@
+#include <float.h>
+
 #include "physics/physics.h"
 #include "transport/transport.h"
 #include "plugins/RobotControllerPlugin.hh"
@@ -88,12 +90,60 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
       }
       jointElem = jointElem->GetNextElement("rcjoint");
     }
+  }
+
+  if (!_sdf->HasElement("floor")) {
+    noFloor = true;
+    gzwarn << "no <floor> element(s)\n";
+  }
+  else {
+    noFloor = false;
     floorElem = _sdf->GetElement("floor");
     std::string floor;
     while(floorElem) {
       jointElem->GetValue()->Get(floor);
       floorList.push_back(floor);
       floorElem = floorElem->GetNextElement("floor");
+    }
+
+    std::string floortmp;
+    no_min = false;
+    min_z = -DBL_MAX;
+    if(_sdf->HasElement("floor_min_z")) {
+      if(!_sdf->GetElement("floor_min_z")->GetValue()->Get(floortmp)) {
+        gzwarn << "<floor_min_z> not readable\n";
+        no_min = true;
+      }
+      else {
+        char* t;
+        min_z = strtod(floortmp.c_str(), &t);
+        if(*t != 0) {
+          gzwarn << "<floor_min_z> not a double\n";
+          no_min = true;
+        }  
+      }
+    } else {
+      gzwarn << "<floor_min_z> not set\n";
+      no_min = true;
+    }
+    no_max = false;
+    max_z = DBL_MAX;
+    if(_sdf->HasElement("floor_max_z")) {
+      if(!_sdf->GetElement("floor_max_z")->GetValue()->Get(floortmp)) {
+        gzwarn << "<floor_max_z> not readable\n";
+        no_max = true;
+      }
+      else {
+        char* t;
+        max_z = strtod(floortmp.c_str(), &t);
+        if(*t != 0) {
+          gzwarn << "<floor_max_z> not a double\n";
+          no_max = true;
+        }  
+      }
+    } else {
+      gzwarn << "<floor_max_z> not set\n";
+      no_max = true;
     }
   }
 
@@ -221,16 +271,18 @@ void RobotControllerPlugin::ProcessControlMsgs() {
           c.pose.pos.z = robot.pos_z();
         else {
           c.pose.pos.z = 0;
-          // find z, that is on top of floor top of a floor, starting with z = 0;
-          physics::WorldPtr world = this->model->GetWorld();
-          std::list<std::string>::iterator floor;
-          // if ontop of a floor, lower robot by 10 cm to avoid flying
-          while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) != floorList.end()) {
-            c.pose.pos.z -= 0.1;
-          }
-          // if not ontop of a floor, lift robot by 10 cm
-          while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) == floorList.end()) {
-            c.pose.pos.z += 0.1;
+          if(!noFloor) {
+            // find z, that is on top of floor top of a floor, starting with z = 0;
+            physics::WorldPtr world = this->model->GetWorld();
+            std::list<std::string>::iterator floor;
+            // if on top of a floor, lower robot by 10 cm to avoid flying
+            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) != floorList.end() && (no_min || pose.pos.z > min_z)) {
+              c.pose.pos.z -= 0.1;
+            }
+            // if not on top of a floor, lift robot by 10 cm
+            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) == floorList.end() && (no_max || pose.pos.z < max_z)) {
+              c.pose.pos.z += 0.1;
+            }
           }
         }
 
@@ -290,16 +342,18 @@ void RobotControllerPlugin::OnSetupMsg(ConstSceneRobotControllerPtr &_msg) {
     pose.pos.z = _msg->pos_z();
   else {
     pose.pos.z = 0;
-    // find z, that is on top of floor top of a floor, starting with z = 0;
-    physics::WorldPtr world = this->model->GetWorld();
-    std::list<std::string>::iterator floor;
-    // if ontop of a floor, lower robot by 10 cm to avoid flying
-    while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) != floorList.end()) {
-      pose.pos.z -= 0.1;
-    }
-    // if not ontop of a floor, lift robot by 10 cm
-    while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) == floorList.end()) {
-      pose.pos.z += 0.1;
+    if(!noFloor) {
+      // find z, that is on top of floor top of a floor, starting with z = 0;
+      physics::WorldPtr world = this->model->GetWorld();
+      std::list<std::string>::iterator floor;
+      // if ontop of a floor, lower robot by 10 cm to avoid flying
+      while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) != floorList.end() && (no_min || pose.pos.z > min_z)) {
+        pose.pos.z -= 0.1;
+      }
+      // if not ontop of a floor, lift robot by 10 cm
+      while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) == floorList.end() && (no_max || pose.pos.z < max_z)) {
+        pose.pos.z += 0.1;
+      }
     }
   }
 

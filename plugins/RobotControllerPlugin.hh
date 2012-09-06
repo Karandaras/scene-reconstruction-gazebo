@@ -51,6 +51,11 @@ namespace gazebo
       std::list<JointCommand>                     jointControlList;
       std::list<RobotCommand>                     robotControlList;
       std::list<std::string>                      floorList;
+      bool                                        noFloor,
+                                                  no_min,
+                                                  no_max;
+      double                                      min_z,
+                                                  max_z;
 
     public: 
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
