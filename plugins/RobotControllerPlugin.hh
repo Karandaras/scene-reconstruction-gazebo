@@ -25,35 +25,44 @@ namespace gazebo
       typedef struct {
           common::Time                 controltime;
           std::map<std::string,double> positions;
-      } ControlCommand;
+      } JointCommand;
+
+      typedef struct {
+          common::Time                 controltime;
+          math::Pose                   pose;
+      } RobotCommand;
 
       transport::NodePtr                          node;
-      transport::SubscriberPtr                    jointSub, 
+      transport::SubscriberPtr                    controlSub, 
                                                   srguiSub,
-                                                  changeJointSub,
+                                                  setupSub,
                                                   statusSub;
       transport::PublisherPtr                     srguiPub,
                                                   statusPub;
 
-      common::Time                                next_control;
+      common::Time                                next_joint_control,
+                                                  next_robot_control;
 
       physics::ModelPtr                           model;
       boost::mutex                               *receiveMutex;
       std::map<std::string, JointData>            jointdata;
       std::map<std::string, JointData>::iterator  jointiter;
       std::list<msgs::Message_V>                  controlMsgs;
-      std::list<ControlCommand>       controlList;
+      std::list<JointCommand>                     jointControlList;
+      std::list<RobotCommand>                     robotControlList;
+      std::list<std::string>                      floorList;
 
     public: 
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
       virtual void Init();
 
     private:
-      void ProcessJointMsgs();
+      void ProcessControlMsgs();
+      void ControlJoints(common::Time now);
       void ControlRobot(common::Time now);
       void OnUpdate();
-      void OnSceneJointMsg(ConstMessage_VPtr &_msg);
-      void OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg);
+      void OnControlMsg(ConstMessage_VPtr &_msg);
+      void OnSetupMsg(ConstSceneRobotControllerPtr &_msg);
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnStatusMsg(ConstRequestPtr &_msg);
   };

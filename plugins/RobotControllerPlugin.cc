@@ -19,14 +19,14 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->node = transport::NodePtr(new transport::Node());
   this->node->Init(this->model->GetWorld()->GetName());
 
-  this->jointSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Joint"), &RobotControllerPlugin::OnSceneJointMsg, this);
-  this->changeJointSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Joint/setup"), &RobotControllerPlugin::OnSceneChangeMsg, this);
+  this->controlSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/"), &RobotControllerPlugin::OnControlMsg, this);
+  this->setupSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Setup"), &RobotControllerPlugin::OnSetupMsg, this);
   this->srguiSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Request"), &RobotControllerPlugin::OnRequestMsg, this);
   this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/RobotController"), &RobotControllerPlugin::OnStatusMsg, this);
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/RobotController/Response"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
 
-  sdf::ElementPtr jointElem;
+  sdf::ElementPtr jointElem, floorElem;
 
   if (!_sdf->HasElement("rcjoint"))
     gzerr << "missing <rcjoint> element(s)\n";
@@ -88,6 +88,13 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
       }
       jointElem = jointElem->GetNextElement("rcjoint");
     }
+    floorElem = _sdf->GetElement("floor");
+    std::string floor;
+    while(floorElem) {
+      jointElem->GetValue()->Get(floor);
+      floorList.push_back(floor);
+      floorElem = floorElem->GetNextElement("floor");
+    }
   }
 
   msgs::Response response;
@@ -100,7 +107,8 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
 /////////////////////////////////////////////////
 void RobotControllerPlugin::Init()
 {
-  this->next_control = common::Time::GetWallTime();
+  this->next_joint_control = common::Time::GetWallTime();
+  this->next_robot_control = common::Time::GetWallTime();
 }
 
 /////////////////////////////////////////////////
@@ -110,33 +118,59 @@ void RobotControllerPlugin::OnUpdate()
     return;
 
   common::Time now = common::Time::GetWallTime();
-  this->ProcessJointMsgs();
+  this->ProcessControlMsgs();
+  this->ControlJoints(now);
   this->ControlRobot(now);
+}
+
+void RobotControllerPlugin::ControlJoints(common::Time now) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  if(now >= this->next_joint_control) {
+    this->next_joint_control = now + common::Time(1);
+    std::list< JointCommand >::iterator it;
+    std::list< JointCommand > newJointList;
+    for(it = jointControlList.begin(); it != jointControlList.end(); it++) {
+      if(it->controltime < now) {
+        this->model->SetJointPositions(it->positions);
+      }
+      else {
+        if(it->controltime < this->next_joint_control) {
+          this->next_joint_control = it->controltime;
+        }
+        newJointList.push_back(*it);
+      }
+    }
+    jointControlList = newJointList;
+  }
 }
 
 void RobotControllerPlugin::ControlRobot(common::Time now) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
-  if(now >= this->next_control) {
-    common::Time old_control = this->next_control;
-    this->next_control = now + common::Time(1);
-    std::list< ControlCommand >::iterator it;
-    for(it = controlList.begin(); it != controlList.end(); it++) {
+  if(now >= this->next_robot_control) {
+    this->next_robot_control = now + common::Time(1);
+    std::list< RobotCommand >::iterator it;
+    std::list< RobotCommand > newRobotList;
+    for(it = robotControlList.begin(); it != robotControlList.end(); it++) {
       if(it->controltime < now) {
-        this->model->SetJointPositions(it->positions);
-        controlList.erase(it);
+        this->model->SetWorldPose(it->pose);
       }
-      else if(it->controltime < this->next_control) {
-        this->next_control = it->controltime;
+      else {
+        if(it->controltime < this->next_robot_control) {
+          this->next_robot_control = it->controltime;
+        }
+        newRobotList.push_back(*it);
       }
     }
+    robotControlList = newRobotList;
   }
 }
 
-void RobotControllerPlugin::ProcessJointMsgs() {
+void RobotControllerPlugin::ProcessControlMsgs() {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
   std::list<msgs::Message_V>::iterator _msg;
   for (_msg = this->controlMsgs.begin(); _msg != this->controlMsgs.end(); ++_msg) {
     msgs::SceneJoint joint;
+    msgs::SceneRobot robot;
     if(_msg->msgtype() == joint.GetTypeName()) {
       int n_msgs = _msg->msgsdata_size();
       for(int n=0; n<n_msgs; n++) {
@@ -156,14 +190,14 @@ void RobotControllerPlugin::ProcessJointMsgs() {
             }
             this->jointiter = this->jointdata.end();
 
-            ControlCommand c;
+            JointCommand c;
             if(joint.has_time())
               c.controltime = common::Time(joint.time());
             else
               c.controltime = common::Time::GetWallTime();
             c.positions = positions;
 
-            this->controlList.push_back(c);
+            this->jointControlList.push_back(c);
           } else {
             gzerr << "number of joints differs from number of angles\n";
           }
@@ -172,11 +206,55 @@ void RobotControllerPlugin::ProcessJointMsgs() {
         }
       }
     }
+    else if(_msg->msgtype() == robot.GetTypeName()) {
+      int n_msgs = _msg->msgsdata_size();
+      for(int n=0; n<n_msgs; n++) {
+        robot.ParseFromString(_msg->msgsdata(n));
+        RobotCommand c;
+        if(robot.has_time())
+          c.controltime = common::Time(robot.time());
+        else
+          c.controltime = common::Time::GetWallTime();
+        c.pose.pos.x = robot.pos_x();
+        c.pose.pos.y = robot.pos_y();
+        if(robot.has_pos_z())
+          c.pose.pos.z = robot.pos_z();
+        else {
+          c.pose.pos.z = 0;
+          // find z, that is on top of floor top of a floor, starting with z = 0;
+          physics::WorldPtr world = this->model->GetWorld();
+          std::list<std::string>::iterator floor;
+          // if ontop of a floor, lower robot by 10 cm to avoid flying
+          while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) != floorList.end()) {
+            c.pose.pos.z -= 0.1;
+          }
+          // if not ontop of a floor, lift robot by 10 cm
+          while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) == floorList.end()) {
+            c.pose.pos.z += 0.1;
+          }
+        }
+
+        if(robot.has_rot_w())
+          c.pose.rot.w = robot.rot_w();
+        if(robot.has_rot_x())
+          c.pose.rot.x = robot.rot_x();
+        if(robot.has_rot_y())
+          c.pose.rot.y = robot.rot_y();
+        if(robot.has_rot_z())
+          c.pose.rot.z = robot.rot_z();
+        
+
+        this->robotControlList.push_back(c);
+      }
+    }
+    else {
+      gzerr << "message of unknown type\n";
+    }
   }
 }
 
 /////////////////////////////////////////////////
-void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg) {
+void RobotControllerPlugin::OnSetupMsg(ConstSceneRobotControllerPtr &_msg) {
   std::map<std::string,double> positions;
   int sn, rn, o, sa, ra;
   sn = _msg->simulator_name_size();
@@ -188,11 +266,13 @@ void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg)
   if(sn == rn && rn == o && o == sa && sa == ra && ra == sn) {
     for(int i=0; i<sn; i++) {
       jointiter = jointdata.find(_msg->robot_name(i));
-      jointiter->second.simulator_name = _msg->simulator_name(i);
-      jointiter->second.offset = _msg->offset(i);
-      jointiter->second.simulator_angle = _msg->simulator_angle(i);
-      jointiter->second.robot_angle = _msg->robot_angle(i);
-      positions[jointiter->second.simulator_name] = jointiter->second.simulator_angle;
+      if(jointiter != jointdata.end()) {
+        jointiter->second.simulator_name = _msg->simulator_name(i);
+        jointiter->second.offset = _msg->offset(i);
+        jointiter->second.simulator_angle = _msg->simulator_angle(i);
+        jointiter->second.robot_angle = _msg->robot_angle(i);
+        positions[jointiter->second.simulator_name] = jointiter->second.simulator_angle;
+      }
     }
 
     jointiter = jointdata.end();
@@ -201,10 +281,42 @@ void RobotControllerPlugin::OnSceneChangeMsg(ConstSceneRobotControllerPtr &_msg)
   else {
     gzerr << "not all fields set for all joints\n";
   }
+
+  math::Pose pose;
+
+  pose.pos.x = _msg->pos_x();
+  pose.pos.y = _msg->pos_y();
+  if(_msg->has_pos_z())
+    pose.pos.z = _msg->pos_z();
+  else {
+    pose.pos.z = 0;
+    // find z, that is on top of floor top of a floor, starting with z = 0;
+    physics::WorldPtr world = this->model->GetWorld();
+    std::list<std::string>::iterator floor;
+    // if ontop of a floor, lower robot by 10 cm to avoid flying
+    while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) != floorList.end()) {
+      pose.pos.z -= 0.1;
+    }
+    // if not ontop of a floor, lift robot by 10 cm
+    while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) == floorList.end()) {
+      pose.pos.z += 0.1;
+    }
+  }
+
+  if(_msg->has_rot_w())
+    pose.rot.w = _msg->rot_w();
+  if(_msg->has_rot_x())
+    pose.rot.x = _msg->rot_x();
+  if(_msg->has_rot_y())
+    pose.rot.y = _msg->rot_y();
+  if(_msg->has_rot_z())
+    pose.rot.z = _msg->rot_z();
+  
+  this->model->SetWorldPose(pose);
 }
 
 /////////////////////////////////////////////////
-void RobotControllerPlugin::OnSceneJointMsg(ConstMessage_VPtr &_msg) {
+void RobotControllerPlugin::OnControlMsg(ConstMessage_VPtr &_msg) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
   controlMsgs.push_back(*_msg);
 }
