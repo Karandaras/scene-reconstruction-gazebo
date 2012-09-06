@@ -205,7 +205,6 @@ void ObjectInstantiatorPlugin::SpawnObjects(common::Time now) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
 
   if(now >= this->next_spawn) {
-    common::Time old_spawn = this->next_spawn;
     this->next_spawn = now + this->object_lifetime + this->object_lifetime + this->object_lifetime;
     std::map< std::string, SceneObject>::iterator it;
     for(it = object_spawn_list.begin(); it != object_spawn_list.end(); it++) {
@@ -230,7 +229,6 @@ void ObjectInstantiatorPlugin::DeleteObjects(common::Time now) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
 
   if(now >= this->next_expire) {
-    common::Time old_expire = this->next_expire;
     this->next_expire = now + this->object_lifetime + this->object_lifetime + this->object_lifetime;
     std::map< std::string, SceneObject>::iterator it;
     for(it = object_list.begin(); it != object_list.end(); it++) {
