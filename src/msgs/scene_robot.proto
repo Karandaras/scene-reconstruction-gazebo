@@ -1,0 +1,21 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Scene Robot
+/// \brief Control the Robot via the RobotControllerPlugin
+/// \verbatim
+
+message SceneRobot
+{
+	required double pos_x			        = 1;
+	required double pos_y			        = 2;
+	optional double pos_z			        = 3;
+	
+	optional double rot_w			        = 4;
+	optional double rot_x			        = 5;
+	optional double rot_y			        = 6;
+	optional double rot_z			        = 7;
+
+  optional double time              = 8;
+}
+
