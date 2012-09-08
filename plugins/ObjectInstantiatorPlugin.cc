@@ -206,22 +206,26 @@ void ObjectInstantiatorPlugin::SpawnObjects(common::Time now) {
 
   if(now >= this->next_spawn) {
     this->next_spawn = now + this->object_lifetime + this->object_lifetime + this->object_lifetime;
-    std::map< std::string, SceneObject>::iterator it;
+    std::list<SceneObject>::iterator it;
+    std::list<SceneObject> new_spawn_list;
     for(it = object_spawn_list.begin(); it != object_spawn_list.end(); it++) {
-      if(it->second.spawntime < now) {
+      if(it->spawntime < now && it->expiretime > now) {
         sdf::SDF _sdf;
-        if(it->second.expiretime <= this->next_expire)
-          this->next_expire = it->second.expiretime;
-        _sdf.SetFromString(it->second.sdf_data);
+        if(it->expiretime < this->next_expire)
+          this->next_expire = it->expiretime;
+        _sdf.SetFromString(it->sdf_data);
         this->world->InsertModel(_sdf);
-        it->second.model = this->world->GetModel(it->first);
-        object_list[it->first] = it->second;
-        object_spawn_list.erase(it);
+        it->model = this->world->GetModel(it->name);
+        object_list.push_back(*it);
       }
-      else if(it->second.spawntime < this->next_spawn) {
-        this->next_spawn = it->second.spawntime;
+      else if(it->spawntime < this->next_spawn) {
+        this->next_spawn = it->spawntime;
+        new_spawn_list.push_back(*it);
       }
     }
+    object_spawn_list = new_spawn_list;
+    object_spawn_list.sort();
+    object_list.sort();
   }
 }
 
@@ -230,24 +234,27 @@ void ObjectInstantiatorPlugin::DeleteObjects(common::Time now) {
 
   if(now >= this->next_expire) {
     this->next_expire = now + this->object_lifetime + this->object_lifetime + this->object_lifetime;
-    std::map< std::string, SceneObject>::iterator it;
+    std::list<SceneObject>::iterator it;
+    std::list<SceneObject> new_object_list;
     for(it = object_list.begin(); it != object_list.end(); it++) {
-      if(it->second.expiretime < now) {
-        it->second.model->GetParent()->RemoveChild(it->first);
-        object_list.erase(it);
+      if(it->expiretime < now) {
+        it->model->GetParent()->RemoveChild(it->name);
       }
-      else if(it->second.expiretime < this->next_expire) {
-        this->next_expire = it->second.expiretime;
+      else if(it->expiretime < this->next_expire) {
+        this->next_expire = it->expiretime;
+        new_object_list.push_back(*it);
       }
     }
+    object_list = new_object_list;
+    object_list.sort();
   }
 }
 
 bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObject &_msg) {
-  std::map< std::string, SceneObject>::iterator it =  object_list.find(name);
+  std::list<SceneObject>::iterator it =  find(object_list.begin(), object_list.end(), name);
   if(it != object_list.end()) {
-    _msg.set_object_type(it->second.type);
-    const math::Pose pose = it->second.model->GetWorldPose();
+    _msg.set_object_type(it->type);
+    const math::Pose pose = it->model->GetWorldPose();
     _msg.set_pos_x(pose.pos.x);
     _msg.set_pos_y(pose.pos.y);
     _msg.set_pos_z(pose.pos.z);
@@ -255,10 +262,10 @@ bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObje
     _msg.set_ori_x(pose.rot.x);
     _msg.set_ori_y(pose.rot.y);
     _msg.set_ori_z(pose.rot.z);
-    _msg.set_frame(it->second.frame);
-    _msg.set_child_frame(it->second.child_frame);
-    _msg.set_objectids(it->second.objectids);
-    _msg.set_name(it->first);
+    _msg.set_frame(it->frame);
+    _msg.set_child_frame(it->child_frame);
+    _msg.set_objectids(it->objectids);
+    _msg.set_name(it->name);
     return true;
   }
   
@@ -266,16 +273,16 @@ bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObje
 }
 
 void ObjectInstantiatorPlugin::fill_list_msg(msgs::String_V &_msg) {
-  std::map<std::string, SceneObject>::iterator it;
+  std::list<SceneObject>::iterator it;
   for(it = object_list.begin(); it != object_list.end(); it++) {
-    _msg.add_data(it->first);
+    _msg.add_data(it->name);
   }
 }
 
 void ObjectInstantiatorPlugin::fill_repository_msg(msgs::String_V &_msg) {
   std::map<std::string, std::string>::iterator it;
   for(it = objects.begin(); it != objects.end(); it++) {
-    _msg.add_data(it->first);
+    _msg.add_data(it->name);
   }
 }
 

@@ -17,6 +17,7 @@ namespace gazebo
 
     private:
       typedef struct {
+          std::string         name;
           std::string         type;
           physics::ModelPtr   model;
           std::string         sdf_data;
@@ -25,10 +26,17 @@ namespace gazebo
           std::string         objectids;
           common::Time        spawntime;
           common::Time        expiretime;
+
+          bool operator<(SceneObject comp) const {
+            return spawntime<comp.spawntime;
+          }
+          bool operator==(std::string comp) const {
+            return name==comp;
+          }
       } SceneObject;
 
-      std::map< std::string, SceneObject> object_list;
-      std::map< std::string, SceneObject> object_spawn_list;
+      std::map< SceneObject> object_list;
+      std::map< SceneObject> object_spawn_list;
       std::map< std::string, std::string> objects;
       transport::NodePtr                  node;
       transport::SubscriberPtr            objectSub,
