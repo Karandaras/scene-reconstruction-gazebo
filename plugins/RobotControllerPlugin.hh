@@ -25,11 +25,19 @@ namespace gazebo
       typedef struct {
           common::Time                 controltime;
           std::map<std::string,double> positions;
+
+          bool operator<(JointCommand comp) const {
+            return controltime<comp.controltime;
+          }
       } JointCommand;
 
       typedef struct {
           common::Time                 controltime;
           math::Pose                   pose;
+
+          bool operator<(RobotCommand comp) const {
+            return controltime<comp.controltime;
+          }
       } RobotCommand;
 
       transport::NodePtr                          node;

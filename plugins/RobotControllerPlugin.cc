@@ -303,6 +303,9 @@ void RobotControllerPlugin::ProcessControlMsgs() {
       gzerr << "message of unknown type\n";
     }
   }
+
+  jointControlList.sort();
+  robotControlList.sort();
 }
 
 /////////////////////////////////////////////////
