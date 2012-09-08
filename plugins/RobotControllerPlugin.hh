@@ -25,11 +25,19 @@ namespace gazebo
       typedef struct {
           common::Time                 controltime;
           std::map<std::string,double> positions;
+
+          bool operator<(JointCommand comp) const {
+            return controltime<comp.controltime;
+          }
       } JointCommand;
 
       typedef struct {
           common::Time                 controltime;
           math::Pose                   pose;
+
+          bool operator<(RobotCommand comp) const {
+            return controltime<comp.controltime;
+          }
       } RobotCommand;
 
       transport::NodePtr                          node;
@@ -51,6 +59,11 @@ namespace gazebo
       std::list<JointCommand>                     jointControlList;
       std::list<RobotCommand>                     robotControlList;
       std::list<std::string>                      floorList;
+      bool                                        noFloor,
+                                                  no_min,
+                                                  no_max;
+      double                                      min_z,
+                                                  max_z;
 
     public: 
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
