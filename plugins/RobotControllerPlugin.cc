@@ -191,6 +191,7 @@ void RobotControllerPlugin::ControlJoints(common::Time now) {
       }
     }
     jointControlList = newJointList;
+    jointControlList.sort();
   }
 }
 
@@ -212,6 +213,7 @@ void RobotControllerPlugin::ControlRobot(common::Time now) {
       }
     }
     robotControlList = newRobotList;
+    robotControlList.sort();
   }
 }
 
@@ -303,6 +305,9 @@ void RobotControllerPlugin::ProcessControlMsgs() {
       gzerr << "message of unknown type\n";
     }
   }
+
+  jointControlList.sort();
+  robotControlList.sort();
 }
 
 /////////////////////////////////////////////////
