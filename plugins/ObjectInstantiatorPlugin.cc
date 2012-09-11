@@ -31,6 +31,7 @@ void ObjectInstantiatorPlugin::Reset() {
 void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
 {
   this->world = _world;
+  this->receiveMutex = new boost::mutex();
   this->object_count = 0;
 
   this->node = transport::NodePtr(new transport::Node());

@@ -17,6 +17,9 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
                            sdf::ElementPtr _sdf)
 {
   this->model = _model;
+  this->receiveMutex = new boost::mutex();
+  this->robotMutex = new boost::mutex();
+  this->jointMutex = new boost::mutex();
 
   this->node = transport::NodePtr(new transport::Node());
   this->node->Init(this->model->GetWorld()->GetName());
@@ -101,7 +104,7 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
     floorElem = _sdf->GetElement("floor");
     std::string floor;
     while(floorElem) {
-      jointElem->GetValue()->Get(floor);
+      floorElem->GetValue()->Get(floor);
       floorList.push_back(floor);
       floorElem = floorElem->GetNextElement("floor");
     }
@@ -174,7 +177,7 @@ void RobotControllerPlugin::OnUpdate()
 }
 
 void RobotControllerPlugin::ControlJoints(common::Time now) {
-  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  boost::mutex::scoped_lock lock(*this->jointMutex);
   if(now >= this->next_joint_control) {
     this->next_joint_control = now + common::Time(1);
     std::list< JointCommand >::iterator it;
@@ -196,7 +199,7 @@ void RobotControllerPlugin::ControlJoints(common::Time now) {
 }
 
 void RobotControllerPlugin::ControlRobot(common::Time now) {
-  boost::mutex::scoped_lock lock(*this->receiveMutex);
+  boost::mutex::scoped_lock lock(*this->robotMutex);
   if(now >= this->next_robot_control) {
     this->next_robot_control = now + common::Time(1);
     std::list< RobotCommand >::iterator it;
@@ -219,6 +222,8 @@ void RobotControllerPlugin::ControlRobot(common::Time now) {
 
 void RobotControllerPlugin::ProcessControlMsgs() {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
+  boost::mutex::scoped_lock lockr(*this->robotMutex);
+  boost::mutex::scoped_lock lockj(*this->jointMutex);
   std::list<msgs::Message_V>::iterator _msg;
   for (_msg = this->controlMsgs.begin(); _msg != this->controlMsgs.end(); ++_msg) {
     msgs::SceneJoint joint;
@@ -308,6 +313,7 @@ void RobotControllerPlugin::ProcessControlMsgs() {
 
   jointControlList.sort();
   robotControlList.sort();
+  controlMsgs.clear();
 }
 
 /////////////////////////////////////////////////

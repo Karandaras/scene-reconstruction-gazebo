@@ -52,7 +52,9 @@ namespace gazebo
                                                   next_robot_control;
 
       physics::ModelPtr                           model;
-      boost::mutex                               *receiveMutex;
+      boost::mutex                               *receiveMutex,
+                                                 *robotMutex,
+                                                 *jointMutex;
       std::map<std::string, JointData>            jointdata;
       std::map<std::string, JointData>::iterator  jointiter;
       std::list<msgs::Message_V>                  controlMsgs;
