@@ -282,7 +282,7 @@ void ObjectInstantiatorPlugin::fill_list_msg(msgs::String_V &_msg) {
 void ObjectInstantiatorPlugin::fill_repository_msg(msgs::String_V &_msg) {
   std::map<std::string, std::string>::iterator it;
   for(it = objects.begin(); it != objects.end(); it++) {
-    _msg.add_data(it->name);
+    _msg.add_data(it->first);
   }
 }
 
@@ -342,16 +342,20 @@ void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
           _sdf.SetFromString(sdf_data);
           this->world->InsertModel(_sdf);
           so.model = this->world->GetModel(modelname);
-          object_list[modelname] = so;
+          so.name = modelname;
+          object_list.push_back(so);
         }
         else {
           so.sdf_data = sdf_data;
-          object_spawn_list[modelname] = so;
+          so.name = modelname;
+          object_spawn_list.push_back(so);
         }
       }
     }
   }
 
+  object_list.sort();
+  object_spawn_list.sort();
   objectMsgs.clear();
 }
 

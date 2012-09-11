@@ -14,31 +14,31 @@ namespace gazebo
       RobotControllerPlugin();
 
     private:
-      typedef struct {
+      struct JointData {
           std::string simulator_name;
           std::string robot_name;
           double offset;
           double simulator_angle;
           double robot_angle;
-      } JointData;
+      };
 
-      typedef struct {
+      struct JointCommand {
           common::Time                 controltime;
           std::map<std::string,double> positions;
 
           bool operator<(JointCommand comp) const {
             return controltime<comp.controltime;
           }
-      } JointCommand;
+      };
 
-      typedef struct {
+      struct RobotCommand {
           common::Time                 controltime;
           math::Pose                   pose;
 
           bool operator<(RobotCommand comp) const {
             return controltime<comp.controltime;
           }
-      } RobotCommand;
+      };
 
       transport::NodePtr                          node;
       transport::SubscriberPtr                    controlSub, 

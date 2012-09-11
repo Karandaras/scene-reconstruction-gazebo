@@ -278,11 +278,11 @@ void RobotControllerPlugin::ProcessControlMsgs() {
             physics::WorldPtr world = this->model->GetWorld();
             std::list<std::string>::iterator floor;
             // if on top of a floor, lower robot by 10 cm to avoid flying
-            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) != floorList.end() && (no_min || pose.pos.z > min_z)) {
+            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) != floorList.end() && (no_min || c.pose.pos.z > min_z)) {
               c.pose.pos.z -= 0.1;
             }
             // if not on top of a floor, lift robot by 10 cm
-            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) == floorList.end() && (no_max || pose.pos.z < max_z)) {
+            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) == floorList.end() && (no_max || c.pose.pos.z < max_z)) {
               c.pose.pos.z += 0.1;
             }
           }

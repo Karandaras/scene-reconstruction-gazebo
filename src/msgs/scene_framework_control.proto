@@ -10,7 +10,5 @@ message SceneFrameworkControl
   optional bool change_offset   = 1;
   optional double offset        = 2;
   optional bool pause           = 3;
-  optional bool change_database = 4;
-  optional string database      = 5;
 }
 

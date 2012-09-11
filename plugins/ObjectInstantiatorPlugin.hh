@@ -16,7 +16,7 @@ namespace gazebo
       ObjectInstantiatorPlugin();
 
     private:
-      typedef struct {
+      struct SceneObject{
           std::string         name;
           std::string         type;
           physics::ModelPtr   model;
@@ -33,10 +33,10 @@ namespace gazebo
           bool operator==(std::string comp) const {
             return name==comp;
           }
-      } SceneObject;
+      };
 
-      std::map< SceneObject> object_list;
-      std::map< SceneObject> object_spawn_list;
+      std::list< SceneObject> object_list;
+      std::list< SceneObject> object_spawn_list;
       std::map< std::string, std::string> objects;
       transport::NodePtr                  node;
       transport::SubscriberPtr            objectSub,
