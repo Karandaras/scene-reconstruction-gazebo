@@ -1,6 +1,8 @@
 #ifndef __GAZEBO_ROBOTCONTROLLER_PLUGIN_HH__
 #define __GAZEBO_ROBOTCONTROLLER_PLUGIN_HH__
 
+#include <vector>
+
 #include "common/common.h"
 #include "physics/physics.h"
 #include "transport/TransportTypes.hh"
@@ -60,16 +62,15 @@ namespace gazebo
       std::list<msgs::Message_V>                  controlMsgs;
       std::list<JointCommand>                     jointControlList;
       std::list<RobotCommand>                     robotControlList;
-      std::list<std::string>                      floorList;
-      bool                                        noFloor,
-                                                  no_min,
-                                                  no_max;
-      double                                      min_z,
-                                                  max_z;
+
+      std::vector<event::ConnectionPtr>           connections;
+
+      physics::WorldPtr                           world;
 
     public: 
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
       virtual void Init();
+      virtual void Reset();
 
     private:
       void ProcessControlMsgs();

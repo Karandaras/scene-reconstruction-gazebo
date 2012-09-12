@@ -16,12 +16,13 @@ ObjectInstantiatorPlugin::ObjectInstantiatorPlugin() : WorldPlugin()
 }
 
 void ObjectInstantiatorPlugin::Init() {
-  this->next_expire = common::Time::GetWallTime();
-  this->next_spawn = common::Time::GetWallTime();
+  this->next_expire = common::Time(world->GetSimTime());
+  this->next_spawn = common::Time(world->GetSimTime());
 }
 
 void ObjectInstantiatorPlugin::Reset() {
-  this->next_expire = common::Time::GetWallTime();
+  this->next_expire = common::Time(world->GetSimTime());
+  this->next_spawn = common::Time(world->GetSimTime());
   this->objectMsgs.clear();
   this->object_list.clear();
   this->object_spawn_list.clear();
@@ -112,6 +113,9 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
     }
   }
 
+  this->connections.push_back(event::Events::ConnectWorldUpdateEnd(
+          boost::bind(&ObjectInstantiatorPlugin::OnUpdate, this)));
+
   msgs::Response response;
   response.set_id(-1);
   response.set_request("status");
@@ -120,8 +124,6 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
 }
 
 void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
-  boost::mutex::scoped_lock lock(*this->receiveMutex);
-
   msgs::Response response;
   response.set_id(_msg->id());
   response.set_request(_msg->request());
@@ -196,7 +198,7 @@ void ObjectInstantiatorPlugin::OnUpdate() {
   if(this->world->IsPaused())
     return;
 
-  common::Time now = common::Time::GetWallTime();
+  common::Time now = common::Time(world->GetSimTime());
   this->ProcessSceneObjectMsgs();
   this->SpawnObjects(now);
   this->DeleteObjects(now);
@@ -252,6 +254,8 @@ void ObjectInstantiatorPlugin::DeleteObjects(common::Time now) {
 }
 
 bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObject &_msg) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+
   std::list<SceneObject>::iterator it =  find(object_list.begin(), object_list.end(), name);
   if(it != object_list.end()) {
     _msg.set_object_type(it->type);
@@ -274,6 +278,8 @@ bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObje
 }
 
 void ObjectInstantiatorPlugin::fill_list_msg(msgs::String_V &_msg) {
+  boost::mutex::scoped_lock lock(*this->receiveMutex);
+
   std::list<SceneObject>::iterator it;
   for(it = object_list.begin(); it != object_list.end(); it++) {
     _msg.add_data(it->name);
@@ -332,12 +338,12 @@ void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
           so.spawntime = common::Time(obj.spawntime());
         }
         else {
-          so.spawntime = common::Time::GetWallTime();
+          so.spawntime = common::Time(world->GetSimTime());
         }
         so.expiretime = so.spawntime + object_lifetime;
         if(so.spawntime <= this->next_spawn)
           this->next_spawn = so.spawntime;
-        if(so.spawntime <= common::Time::GetWallTime()) {
+        if(so.spawntime <= world->GetSimTime()) {
           if(so.expiretime <= this->next_expire)
             this->next_expire = so.expiretime;
           _sdf.SetFromString(sdf_data);

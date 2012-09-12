@@ -17,12 +17,13 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
                            sdf::ElementPtr _sdf)
 {
   this->model = _model;
+  this->world = this->model->GetWorld();
   this->receiveMutex = new boost::mutex();
   this->robotMutex = new boost::mutex();
   this->jointMutex = new boost::mutex();
 
   this->node = transport::NodePtr(new transport::Node());
-  this->node->Init(this->model->GetWorld()->GetName());
+  this->node->Init(this->world->GetName());
 
   this->controlSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/"), &RobotControllerPlugin::OnControlMsg, this);
   this->setupSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Setup"), &RobotControllerPlugin::OnSetupMsg, this);
@@ -31,7 +32,7 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/RobotController/Response"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
 
-  sdf::ElementPtr jointElem, floorElem;
+  sdf::ElementPtr jointElem;
 
   if (!_sdf->HasElement("rcjoint"))
     gzerr << "missing <rcjoint> element(s)\n";
@@ -95,60 +96,9 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
     }
   }
 
-  if (!_sdf->HasElement("floor")) {
-    noFloor = true;
-    gzwarn << "no <floor> element(s)\n";
-  }
-  else {
-    noFloor = false;
-    floorElem = _sdf->GetElement("floor");
-    std::string floor;
-    while(floorElem) {
-      floorElem->GetValue()->Get(floor);
-      floorList.push_back(floor);
-      floorElem = floorElem->GetNextElement("floor");
-    }
-
-    std::string floortmp;
-    no_min = false;
-    min_z = -DBL_MAX;
-    if(_sdf->HasElement("floor_min_z")) {
-      if(!_sdf->GetElement("floor_min_z")->GetValue()->Get(floortmp)) {
-        gzwarn << "<floor_min_z> not readable\n";
-        no_min = true;
-      }
-      else {
-        char* t;
-        min_z = strtod(floortmp.c_str(), &t);
-        if(*t != 0) {
-          gzwarn << "<floor_min_z> not a double\n";
-          no_min = true;
-        }  
-      }
-    } else {
-      gzwarn << "<floor_min_z> not set\n";
-      no_min = true;
-    }
-    no_max = false;
-    max_z = DBL_MAX;
-    if(_sdf->HasElement("floor_max_z")) {
-      if(!_sdf->GetElement("floor_max_z")->GetValue()->Get(floortmp)) {
-        gzwarn << "<floor_max_z> not readable\n";
-        no_max = true;
-      }
-      else {
-        char* t;
-        max_z = strtod(floortmp.c_str(), &t);
-        if(*t != 0) {
-          gzwarn << "<floor_max_z> not a double\n";
-          no_max = true;
-        }  
-      }
-    } else {
-      gzwarn << "<floor_max_z> not set\n";
-      no_max = true;
-    }
-  }
+  // connect update to worldupdate
+  this->connections.push_back(event::Events::ConnectWorldUpdateEnd(
+          boost::bind(&RobotControllerPlugin::OnUpdate, this)));
 
   msgs::Response response;
   response.set_id(-1);
@@ -160,17 +110,26 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
 /////////////////////////////////////////////////
 void RobotControllerPlugin::Init()
 {
-  this->next_joint_control = common::Time::GetWallTime();
-  this->next_robot_control = common::Time::GetWallTime();
+  this->next_joint_control = common::Time(world->GetSimTime());
+  this->next_robot_control = common::Time(world->GetSimTime());
+}
+
+void RobotControllerPlugin::Reset()
+{
+  this->next_joint_control = common::Time(world->GetSimTime());
+  this->next_robot_control = common::Time(world->GetSimTime());
+  jointControlList.clear();
+  robotControlList.clear();
+  controlMsgs.clear();
 }
 
 /////////////////////////////////////////////////
 void RobotControllerPlugin::OnUpdate()
 {
-  if(this->model->GetWorld()->IsPaused())
+  if(this->world->IsPaused())
     return;
 
-  common::Time now = common::Time::GetWallTime();
+  common::Time now = common::Time(world->GetSimTime());
   this->ProcessControlMsgs();
   this->ControlJoints(now);
   this->ControlRobot(now);
@@ -248,10 +207,10 @@ void RobotControllerPlugin::ProcessControlMsgs() {
             this->jointiter = this->jointdata.end();
 
             JointCommand c;
-            if(joint.has_time())
-              c.controltime = common::Time(joint.time());
+            if(joint.has_controltime())
+              c.controltime = common::Time(joint.controltime());
             else
-              c.controltime = common::Time::GetWallTime();
+              c.controltime = common::Time(world->GetSimTime());
             c.positions = positions;
 
             this->jointControlList.push_back(c);
@@ -268,29 +227,16 @@ void RobotControllerPlugin::ProcessControlMsgs() {
       for(int n=0; n<n_msgs; n++) {
         robot.ParseFromString(_msg->msgsdata(n));
         RobotCommand c;
-        if(robot.has_time())
-          c.controltime = common::Time(robot.time());
+        if(robot.has_controltime())
+          c.controltime = common::Time(robot.controltime());
         else
-          c.controltime = common::Time::GetWallTime();
+          c.controltime = common::Time(world->GetSimTime());
         c.pose.pos.x = robot.pos_x();
         c.pose.pos.y = robot.pos_y();
         if(robot.has_pos_z())
           c.pose.pos.z = robot.pos_z();
         else {
           c.pose.pos.z = 0;
-          if(!noFloor) {
-            // find z, that is on top of floor top of a floor, starting with z = 0;
-            physics::WorldPtr world = this->model->GetWorld();
-            std::list<std::string>::iterator floor;
-            // if on top of a floor, lower robot by 10 cm to avoid flying
-            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) != floorList.end() && (no_min || c.pose.pos.z > min_z)) {
-              c.pose.pos.z -= 0.1;
-            }
-            // if not on top of a floor, lift robot by 10 cm
-            while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(c.pose.pos)->GetName())) == floorList.end() && (no_max || c.pose.pos.z < max_z)) {
-              c.pose.pos.z += 0.1;
-            }
-          }
         }
 
         if(robot.has_rot_w())
@@ -353,19 +299,6 @@ void RobotControllerPlugin::OnSetupMsg(ConstSceneRobotControllerPtr &_msg) {
     pose.pos.z = _msg->pos_z();
   else {
     pose.pos.z = 0;
-    if(!noFloor) {
-      // find z, that is on top of floor top of a floor, starting with z = 0;
-      physics::WorldPtr world = this->model->GetWorld();
-      std::list<std::string>::iterator floor;
-      // if ontop of a floor, lower robot by 10 cm to avoid flying
-      while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) != floorList.end() && (no_min || pose.pos.z > min_z)) {
-        pose.pos.z -= 0.1;
-      }
-      // if not ontop of a floor, lift robot by 10 cm
-      while((floor = find(floorList.begin(), floorList.end(), world->GetEntityBelowPoint(pose.pos)->GetName())) == floorList.end() && (no_max || pose.pos.z < max_z)) {
-        pose.pos.z += 0.1;
-      }
-    }
   }
 
   if(_msg->has_rot_w())

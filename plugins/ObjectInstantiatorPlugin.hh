@@ -35,9 +35,9 @@ namespace gazebo
           }
       };
 
-      std::list< SceneObject> object_list;
-      std::list< SceneObject> object_spawn_list;
-      std::map< std::string, std::string> objects;
+      std::list< SceneObject >            object_list;
+      std::list< SceneObject >            object_spawn_list;
+      std::map<std::string, std::string>  objects;
       transport::NodePtr                  node;
       transport::SubscriberPtr            objectSub,
                                           statusSub;
@@ -51,6 +51,7 @@ namespace gazebo
       physics::WorldPtr                   world;
       boost::mutex                       *receiveMutex;
       std::list<msgs::Message_V>          objectMsgs;
+      std::vector<event::ConnectionPtr>   connections;
 
     public: 
       void virtual Init();

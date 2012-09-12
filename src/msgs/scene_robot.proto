@@ -16,6 +16,6 @@ message SceneRobot
 	optional double rot_y			        = 6;
 	optional double rot_z			        = 7;
 
-  optional double time              = 8;
+  optional double controltime       = 8;
 }
 

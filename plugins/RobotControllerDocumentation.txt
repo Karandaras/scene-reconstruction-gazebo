@@ -15,20 +15,7 @@ rcjoint Element (required)(1..n)
     (replace * by the string encapsulated by rcjoint)
     Offset between Model and data
 
-floor Element (optional)(string)(0..n)
-    name of the floor entities where the robot may be on
-    if set, the whole range of possible coordinates has to be
-    covered with floor entities or min_z and max_z have to be set
-floor_min_z (optional)(double)(1)
-    minimal z value to check, if not set, -DBL_MAX will be used if no floor is found
-floor_max_z (optional)(double)(1)
-    maximal z value to check, if not set, DBL_MAX will be used if no floor is found
-
-
 Example
-<floor>groundplane</floor>
-<floor_min_z>5.0</floor_min_z>
-<floor_max_z>-5.0</floor_max_z>
 <rcjoint>1</rcjoint>
 	<gname_1>Name</gname_1>
 	<fname_1>Another Name</fname_1>
