@@ -16,8 +16,9 @@ rcjoint Element (required)(1..n)
     Offset between Model and data
 
 Example
-<rcjoint>1</rcjoint>
-	<gname_1>Name</gname_1>
-	<fname_1>Another Name</fname_1>
-	<offset_1>0.0</offset_1>
-
+<plugin name="RobotControllerPlugin" filename="libRobotControllerPlugin.so">
+  <rcjoint>1</rcjoint>
+	  <gname_1>Name</gname_1>
+	  <fname_1>Another Name</fname_1>
+	  <offset_1>0.0</offset_1>
+</plugin>

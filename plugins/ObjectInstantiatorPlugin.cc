@@ -93,9 +93,41 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
               std::string line;
               while(!ifile.eof()) {
                 getline(ifile,line);
-                _data << line;
+                _data << line << std::endl;
               }
               data = _data.str();
+
+              std::string sdf_scale = "1 1 1";
+              if(_sdf->HasElement("scale_"+object)) {
+                if(!_sdf->GetElement("scale_"+object)->GetValue()->Get(sdf_scale)) {
+              	  gzerr << "<scale_" << object << "> is not a string, leaving it out\n";
+                }              
+              }
+              sdf_replace(data, std::string("@SCALE@"), sdf_scale);
+
+              std::string sdf_height = "1";
+              if(_sdf->HasElement("height_"+object)) {
+                if(!_sdf->GetElement("height_"+object)->GetValue()->Get(sdf_height)) {
+              	  gzerr << "<height_" << object << "> is not a string, leaving it out\n";
+                }              
+              }
+              sdf_replace(data, std::string("@HEIGHT@"), sdf_height);
+
+              std::string sdf_colorrgba = "0 0 0 1";
+              if(_sdf->HasElement("colorrgba_"+object)) {
+                if(!_sdf->GetElement("colorrgba_"+object)->GetValue()->Get(sdf_colorrgba)) {
+              	  gzerr << "<colorrgba_" << object << "> is not a string, leaving it out\n";
+                }
+              }
+              sdf_replace(data, std::string("@COLORRGBA@"), sdf_colorrgba);
+
+              std::string sdf_colorscript = "Gazebo/FlatBlack";
+              if(_sdf->HasElement("colorscript_"+object)) {
+                if(!_sdf->GetElement("colorscript_"+object)->GetValue()->Get(sdf_colorscript)) {
+              	  gzerr << "<colorscript_" << object << "> is not a string, leaving it out\n";
+                }
+              }
+              sdf_replace(data, std::string("@COLORSCRIPT@"), sdf_colorscript);
 
               objects[name] = data;
               ifile.close();
@@ -324,10 +356,11 @@ void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
           oriy = obj.ori_y();
         if(obj.has_ori_z())
           oriz = obj.ori_z();
+        math::Quaternion q(oriw, orix, oriy, oriz);
         if(obj.has_name())
           name = obj.name();
 
-        std::string modelname = set_sdf_values(sdf_data, name, obj.pos_x(), obj.pos_y(), obj.pos_z(), oriw, orix, oriy, oriz);
+        std::string modelname = set_sdf_values(sdf_data, name, obj.pos_x(), obj.pos_y(), obj.pos_z(), q.GetRoll(), q.GetPitch(), q.GetYaw());
         SceneObject so;
         so.type = obj.object_type();
         so.frame = obj.frame();
@@ -366,7 +399,7 @@ void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
   objectMsgs.clear();
 }
 
-std::string ObjectInstantiatorPlugin::set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double ori_w, double ori_x, double ori_y, double ori_z) {
+std::string ObjectInstantiatorPlugin::set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double rot_r, double rot_p, double rot_y) {
   std::ostringstream converter;
   std::string modelname;
   converter << name << "_" << this->object_count;
@@ -387,20 +420,16 @@ std::string ObjectInstantiatorPlugin::set_sdf_values(std::string &_sdf, std::str
   sdf_replace(_sdf, "@POSZ@", converter.str());
 
   converter.str("");
-  converter << ori_w;
-  sdf_replace(_sdf, "@ORIW@", converter.str());
+  converter << rot_r;
+  sdf_replace(_sdf, "@ROTR@", converter.str());
 
   converter.str("");
-  converter << ori_x;
-  sdf_replace(_sdf, "@ORIX@", converter.str());
+  converter << rot_p;
+  sdf_replace(_sdf, "@ROTP@", converter.str());
 
   converter.str("");
-  converter << ori_y;
-  sdf_replace(_sdf, "@ORIY@", converter.str());
-
-  converter.str("");
-  converter << ori_z;
-  sdf_replace(_sdf, "@ORIZ@", converter.str());
+  converter << rot_y;
+  sdf_replace(_sdf, "@ROTY@", converter.str());
 
   return modelname;
 }

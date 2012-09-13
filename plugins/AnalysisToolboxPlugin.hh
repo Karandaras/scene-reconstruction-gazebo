@@ -20,6 +20,7 @@ namespace gazebo
       std::vector<event::ConnectionPtr>   connections;
       rendering::ScenePtr                 scene;
 
+      transport::NodePtr                  node;
       transport::SubscriberPtr            statusSub;
       transport::PublisherPtr             statusPub,
                                           requestPub;
@@ -31,6 +32,7 @@ namespace gazebo
 
     private:
       void OnUpdate();
+      void OnStatusMsg(ConstRequestPtr&);
   };
   GZ_REGISTER_WORLD_PLUGIN(AnalysisToolboxPlugin)
 } 

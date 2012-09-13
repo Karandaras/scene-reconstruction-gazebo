@@ -1,1 +1,6 @@
 AnalysisToolboxPlugin Documentation
+
+
+Example:
+<plugin name="AnalysisToolboxPlugin" filename="libAnalysisToolboxPlugin.so">
+</plugin>

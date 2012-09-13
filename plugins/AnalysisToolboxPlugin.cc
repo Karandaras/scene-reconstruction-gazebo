@@ -1,3 +1,6 @@
+#include "rendering/Rendering.hh"
+#include "transport/Node.hh"
+
 #include "AnalysisToolboxPlugin.hh"
 
 using namespace gazebo;
@@ -16,6 +19,9 @@ void AnalysisToolboxPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
 {
   this->world = _world;
   this->scene = rendering::get_scene(this->world->GetName());
+
+  this->node = transport::NodePtr(new transport::Node());
+  this->node->Init(_world->GetName());
 
   this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/AnalysisToolbox"), &AnalysisToolboxPlugin::OnStatusMsg, this);
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));

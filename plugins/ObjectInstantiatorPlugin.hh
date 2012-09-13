@@ -69,7 +69,7 @@ namespace gazebo
       bool fill_object_msg(std::string name, msgs::SceneObject &_msg);
       void fill_list_msg(msgs::String_V &_msg);
       void fill_repository_msg(msgs::String_V &_msg);
-      std::string set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double ori_w, double ori_x, double ori_y, double ori_z);
+      std::string set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double rot_r, double rot_p, double rot_y);
       void sdf_replace(std::string &text, std::string from, std::string to);
   };
   GZ_REGISTER_WORLD_PLUGIN(ObjectInstantiatorPlugin)
