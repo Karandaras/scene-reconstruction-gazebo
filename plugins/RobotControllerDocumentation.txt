@@ -1,5 +1,29 @@
 RobotControllerPlugin Documentation
 
+settings Elements
+
+settings_position_x_offset Element (optional)(double) (default 0.0)
+    Offset for the x value of the position in meters
+
+settings_position_y_offset Element (optional)(double) (default 0.0)
+    Offset for the y value of the position in meters
+
+settings_position_z_offset Element (optional)(double) (default 0.0)
+    Offset for the z value of the position in meters
+
+settings_orientation_w_offset Element (optional)(double) (default 0.0)
+    Offset for the w value of the orientation
+
+settings_orientation_x_offset Element (optional)(double) (default 0.0)
+    Offset for the x value of the orientation
+
+settings_orientation_y_offset Element (optional)(double) (default 0.0)
+    Offset for the y value of the orientation
+
+settings_orientation_z_offset Element (optional)(double) (default 0.0)
+    Offset for the z value of the orientation
+
+
 rcjoint Element (required)(1..n)
     string to identify the childs of this rcjoint (no spaces allowed)
 

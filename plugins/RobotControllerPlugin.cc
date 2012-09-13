@@ -32,6 +32,140 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/RobotController/Response"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
 
+  this->position_x_offset = 0.0;
+  this->position_y_offset = 0.0;
+  this->position_z_offset = 0.0;
+  this->orientation_w_offset = 0.0;
+  this->orientation_x_offset = 0.0;
+  this->orientation_y_offset = 0.0;
+  this->orientation_z_offset = 0.0;
+
+  if(_sdf->HasElement("settings_position_x_offset")) {
+    std::string tmp_x_offset;
+    double x_offset;
+    if(!_sdf->GetElement("settings_position_x_offset")->GetValue()->Get(tmp_x_offset)) {
+  	  gzwarn << "<settings_position_x_offset> is not readable, defaulting to 0.0\n";
+    }
+    else {
+      char* t;
+      x_offset = strtod(tmp_x_offset.c_str(), &t);
+      if(*t != 0) {
+        gzwarn << "<settings_position_x_offset> not a double, defaulting to 0.0\n";
+      }
+      else {
+        this->position_x_offset = x_offset;
+      }
+    }
+  }
+
+  if(_sdf->HasElement("settings_position_y_offset")) {
+    std::string tmp_y_offset;
+    double y_offset;
+    if(!_sdf->GetElement("settings_position_y_offset")->GetValue()->Get(tmp_y_offset)) {
+  	  gzwarn << "<settings_position_y_offset> is not readable, defaulting to 0.0\n";
+    }
+    else {
+      char* t;
+      y_offset = strtod(tmp_y_offset.c_str(), &t);
+      if(*t != 0) {
+        gzwarn << "<settings_position_y_offset> not a double, defaulting to 0.0\n";
+      }
+      else {
+        this->position_y_offset = y_offset;
+      }
+    }
+  }
+
+  if(_sdf->HasElement("settings_position_z_offset")) {
+    std::string tmp_z_offset;
+    double z_offset;
+    if(!_sdf->GetElement("settings_position_z_offset")->GetValue()->Get(tmp_z_offset)) {
+  	  gzwarn << "<settings_position_z_offset> is not readable, defaulting to 0.0\n";
+    }
+    else {
+      char* t;
+      z_offset = strtod(tmp_z_offset.c_str(), &t);
+      if(*t != 0) {
+        gzwarn << "<settings_position_z_offset> not a double, defaulting to 0.0\n";
+      }
+      else {
+        this->position_z_offset = z_offset;
+      }
+    }
+  }
+
+  if(_sdf->HasElement("settings_orientation_w_offset")) {
+    std::string tmp_w_offset;
+    double w_offset;
+    if(!_sdf->GetElement("settings_orientation_w_offset")->GetValue()->Get(tmp_w_offset)) {
+  	  gzwarn << "<settings_orientation_w_offset> is not readable, defaulting to 0.0\n";
+    }
+    else {
+      char* t;
+      w_offset = strtod(tmp_w_offset.c_str(), &t);
+      if(*t != 0) {
+        gzwarn << "<settings_orientation_w_offset> not a double, defaulting to 0.0\n";
+      }
+      else {
+        this->orientation_w_offset = w_offset;
+      }
+    }
+  }
+
+  if(_sdf->HasElement("settings_orientation_x_offset")) {
+    std::string tmp_x_offset;
+    double x_offset;
+    if(!_sdf->GetElement("settings_orientation_x_offset")->GetValue()->Get(tmp_x_offset)) {
+  	  gzwarn << "<settings_orientation_x_offset> is not readable, defaulting to 0.0\n";
+    }
+    else {
+      char* t;
+      x_offset = strtod(tmp_x_offset.c_str(), &t);
+      if(*t != 0) {
+        gzwarn << "<settings_orientation_x_offset> not a double, defaulting to 0.0\n";
+      }
+      else {
+        this->orientation_x_offset = x_offset;
+      }
+    }
+  }
+
+  if(_sdf->HasElement("settings_orientation_y_offset")) {
+    std::string tmp_y_offset;
+    double y_offset;
+    if(!_sdf->GetElement("settings_orientation_y_offset")->GetValue()->Get(tmp_y_offset)) {
+  	  gzwarn << "<settings_orientation_y_offset> is not readable, defaulting to 0.0\n";
+    }
+    else {
+      char* t;
+      y_offset = strtod(tmp_y_offset.c_str(), &t);
+      if(*t != 0) {
+        gzwarn << "<settings_orientation_y_offset> not a double, defaulting to 0.0\n";
+      }
+      else {
+        this->orientation_y_offset = y_offset;
+      }
+    }
+  }
+
+  if(_sdf->HasElement("settings_orientation_z_offset")) {
+    std::string tmp_z_offset;
+    double z_offset;
+    if(!_sdf->GetElement("settings_orientation_z_offset")->GetValue()->Get(tmp_z_offset)) {
+  	  gzwarn << "<settings_orientation_z_offset> is not readable, defaulting to 0.0\n";
+    }
+    else {
+      char* t;
+      z_offset = strtod(tmp_z_offset.c_str(), &t);
+      if(*t != 0) {
+        gzwarn << "<settings_orientation_z_offset> not a double, defaulting to 0.0\n";
+      }
+      else {
+        this->orientation_z_offset = z_offset;
+      }
+    }
+  }
+
   sdf::ElementPtr jointElem;
 
   if (!_sdf->HasElement("rcjoint"))
@@ -53,7 +187,7 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
         } else {
           if(_sdf->HasElement("fname_"+rcjoint)) {
             if(!_sdf->GetElement("fname_"+rcjoint)->GetValue()->Get(fname)) {
-              gzerr << "<fname_" << rcjoint << "> not a string, defaulting to gname:" << gname << "\n";
+              gzwarn << "<fname_" << rcjoint << "> not a string, defaulting to gname:" << gname << "\n";
             fname = gname;
             }
           } else {
@@ -61,14 +195,14 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
           }
           if(_sdf->HasElement("offset_"+rcjoint)) {
             if(!_sdf->GetElement("offset_"+rcjoint)->GetValue()->Get(offtmp)) {
-              gzerr << "<offset_" << rcjoint << "> not readable, defaulting to 0.0\n";
+              gzwarn << "<offset_" << rcjoint << "> not readable, defaulting to 0.0\n";
               off = 0.0;
             }
             else {
               char* t;
               off = strtod(offtmp.c_str(), &t);
               if(*t != 0) {
-                gzerr << "<offset_" << rcjoint << "> not a double, defaulting to 0.0\n";
+                gzwarn << "<offset_" << rcjoint << "> not a double, defaulting to 0.0\n";
                 off = 0.0;
               }  
             }
@@ -231,29 +365,29 @@ void RobotControllerPlugin::ProcessControlMsgs() {
           c.controltime = common::Time(robot.controltime());
         else
           c.controltime = common::Time(world->GetSimTime());
-        c.pose.pos.x = robot.pos_x();
-        c.pose.pos.y = robot.pos_y();
+        c.pose.pos.x = robot.pos_x() + this->position_x_offset;
+        c.pose.pos.y = robot.pos_y() + this->position_y_offset;
         if(robot.has_pos_z())
-          c.pose.pos.z = robot.pos_z();
+          c.pose.pos.z = robot.pos_z() + this->position_z_offset;
         else {
-          c.pose.pos.z = 0;
+          c.pose.pos.z = 0.0 + this->position_z_offset;
         }
 
         if(robot.has_rot_w())
-          c.pose.rot.w = robot.rot_w();
+          c.pose.rot.w = robot.rot_w() + this->rotation_w_offset;
         if(robot.has_rot_x())
-          c.pose.rot.x = robot.rot_x();
+          c.pose.rot.x = robot.rot_x() + this->rotation_x_offset;
         if(robot.has_rot_y())
-          c.pose.rot.y = robot.rot_y();
+          c.pose.rot.y = robot.rot_y() + this->rotation_y_offset;
         if(robot.has_rot_z())
-          c.pose.rot.z = robot.rot_z();
+          c.pose.rot.z = robot.rot_z() + this->rotation_z_offset;
         
 
         this->robotControlList.push_back(c);
       }
     }
     else {
-      gzerr << "message of unknown type\n";
+      gzwarn << "message of unknown type\n";
     }
   }
 

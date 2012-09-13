@@ -63,6 +63,14 @@ namespace gazebo
       std::list<JointCommand>                     jointControlList;
       std::list<RobotCommand>                     robotControlList;
 
+      double                                      position_x_offset,
+                                                  position_y_offset,
+                                                  position_z_offset,
+                                                  orientation_w_offset,
+                                                  orientation_x_offset,
+                                                  orientation_y_offset,
+                                                  orientation_z_offset;
+
       std::vector<event::ConnectionPtr>           connections;
 
       physics::WorldPtr                           world;
