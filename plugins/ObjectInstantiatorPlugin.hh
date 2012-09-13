@@ -40,6 +40,7 @@ namespace gazebo
       std::map<std::string, std::string>  objects;
       transport::NodePtr                  node;
       transport::SubscriberPtr            objectSub,
+                                          requestSub,
                                           statusSub;
       transport::PublisherPtr             srguiPub,
                                           framePub,

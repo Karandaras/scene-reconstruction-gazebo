@@ -39,6 +39,7 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->node->Init(_world->GetName());
 
   this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
+  this->requestSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Request"), &ObjectInstantiatorPlugin::OnRequestMsg, this);
   this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/ObjectInstantiator"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
@@ -65,7 +66,7 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   sdf::ElementPtr objectElem;
   if (_sdf->HasElement("object")) {
     objectElem = _sdf->GetElement("object");
-    int object;
+    std::string object;
     while(objectElem) {
       _sdf->GetElement("object")->GetValue()->Get(object);
       std::string name;
@@ -81,12 +82,12 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
             if(!_sdf->GetElement("filename_"+object)->GetValue()->Get(sdf_filename)) {
           	  gzerr << "<filename_" << object << "> is not a string, leaving out this <object>\n";
             }
-            
+            sdf_filename = common::SystemPaths::Instance()->GetModelPathExtension().substr(1) + "/" + sdf_filename;
             std::string _filename = common::SystemPaths::Instance()->FindFileWithGazeboPaths(sdf_filename);
             std::ifstream ifile(_filename.c_str());
 
             if(!ifile) {              
-          	  gzerr << "\"" << filename << "\" does not exist, leaving out this <object>\n";              
+          	  gzerr << "\"" << sdf_filename << "\" does not exist, leaving out this <object>\n";              
             }
             else {
               std::ostringstream _data;
