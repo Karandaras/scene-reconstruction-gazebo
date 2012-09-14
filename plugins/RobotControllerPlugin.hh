@@ -46,8 +46,10 @@ namespace gazebo
       transport::SubscriberPtr                    controlSub, 
                                                   srguiSub,
                                                   setupSub,
+                                                  initSub,
                                                   statusSub;
       transport::PublisherPtr                     srguiPub,
+                                                  offsetPub,
                                                   statusPub;
 
       common::Time                                next_joint_control,
@@ -87,6 +89,7 @@ namespace gazebo
       void OnUpdate();
       void OnControlMsg(ConstMessage_VPtr &_msg);
       void OnSetupMsg(ConstSceneRobotControllerPtr &_msg);
+      void OnInitMsg(ConstSceneRobotControllerPtr &_msg);
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnStatusMsg(ConstRequestPtr &_msg);
   };

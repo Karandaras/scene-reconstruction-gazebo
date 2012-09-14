@@ -25,13 +25,6 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->node = transport::NodePtr(new transport::Node());
   this->node->Init(this->world->GetName());
 
-  this->controlSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/"), &RobotControllerPlugin::OnControlMsg, this);
-  this->setupSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Setup"), &RobotControllerPlugin::OnSetupMsg, this);
-  this->srguiSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Request"), &RobotControllerPlugin::OnRequestMsg, this);
-  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/RobotController"), &RobotControllerPlugin::OnStatusMsg, this);
-  this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/RobotController/Response"));
-  this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
-
   this->position_x_offset = 0.0;
   this->position_y_offset = 0.0;
   this->position_z_offset = 0.0;
@@ -230,6 +223,15 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
     }
   }
 
+  this->controlSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/"), &RobotControllerPlugin::OnControlMsg, this);
+  this->setupSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Setup"), &RobotControllerPlugin::OnSetupMsg, this);
+  this->initSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Init"), &RobotControllerPlugin::OnInitMsg, this);
+  this->srguiSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Request"), &RobotControllerPlugin::OnRequestMsg, this);
+  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/RobotController"), &RobotControllerPlugin::OnStatusMsg, this);
+  this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/RobotController/Response"));
+  this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
+  this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
+
   // connect update to worldupdate
   this->connections.push_back(event::Events::ConnectWorldUpdateEnd(
           boost::bind(&RobotControllerPlugin::OnUpdate, this)));
@@ -373,14 +375,25 @@ void RobotControllerPlugin::ProcessControlMsgs() {
           c.pose.pos.z = 0.0 + this->position_z_offset;
         }
 
-        if(robot.has_rot_w())
-          c.pose.rot.w = robot.rot_w() + this->rotation_w_offset;
-        if(robot.has_rot_x())
-          c.pose.rot.x = robot.rot_x() + this->rotation_x_offset;
-        if(robot.has_rot_y())
-          c.pose.rot.y = robot.rot_y() + this->rotation_y_offset;
-        if(robot.has_rot_z())
-          c.pose.rot.z = robot.rot_z() + this->rotation_z_offset;
+        if(robot.has_ori_w())
+          c.pose.rot.w = robot.ori_w() + this->orientation_w_offset;
+        else
+          c.pose.rot.w = 0.0 + this->orientation_w_offset;
+
+        if(robot.has_ori_x())
+          c.pose.rot.x = robot.ori_x() + this->orientation_x_offset;
+        else
+          c.pose.rot.x = 0.0 + this->orientation_x_offset;
+
+        if(robot.has_ori_y())
+          c.pose.rot.y = robot.ori_y() + this->orientation_y_offset;
+        else
+          c.pose.rot.y = 0.0 + this->orientation_y_offset;
+
+        if(robot.has_ori_z())
+          c.pose.rot.z = robot.ori_z() + this->orientation_z_offset;
+        else
+          c.pose.rot.z = 0.0 + this->orientation_z_offset;
         
 
         this->robotControlList.push_back(c);
@@ -427,22 +440,87 @@ void RobotControllerPlugin::OnSetupMsg(ConstSceneRobotControllerPtr &_msg) {
 
   math::Pose pose;
 
-  pose.pos.x = _msg->pos_x();
-  pose.pos.y = _msg->pos_y();
+  pose.pos.x = _msg->pos_x() + this->position_x_offset;
+  pose.pos.y = _msg->pos_y() + this->position_y_offset;
   if(_msg->has_pos_z())
-    pose.pos.z = _msg->pos_z();
+    pose.pos.z = _msg->pos_z() + this->position_z_offset;
   else {
-    pose.pos.z = 0;
+    pose.pos.z = 0.0 + this->position_z_offset;
   }
 
-  if(_msg->has_rot_w())
-    pose.rot.w = _msg->rot_w();
-  if(_msg->has_rot_x())
-    pose.rot.x = _msg->rot_x();
-  if(_msg->has_rot_y())
-    pose.rot.y = _msg->rot_y();
-  if(_msg->has_rot_z())
-    pose.rot.z = _msg->rot_z();
+  if(_msg->has_ori_w())
+    pose.rot.w = _msg->ori_w() + this->orientation_w_offset;
+  else
+    pose.rot.w = 0.0 + this->orientation_w_offset;
+
+  if(_msg->has_ori_x())
+    pose.rot.x = _msg->ori_x() + this->orientation_x_offset;
+  else
+    pose.rot.x = 0.0 + this->orientation_x_offset;
+
+  if(_msg->has_ori_y())
+    pose.rot.y = _msg->ori_y() + this->orientation_y_offset;
+  else
+    pose.rot.y = 0.0 + this->orientation_y_offset;
+
+  if(_msg->has_ori_z())
+    pose.rot.z = _msg->ori_z() + this->orientation_z_offset;
+  else
+    pose.rot.z = 0.0 + this->orientation_z_offset;
+  
+  this->model->SetWorldPose(pose);
+}
+
+void RobotControllerPlugin::OnInitMsg(ConstSceneRobotControllerPtr &_msg) {
+  std::map<std::string,double> positions;
+  int rn, ra;
+  rn = _msg->robot_name_size();
+  ra = _msg->robot_angle_size();
+
+  if(rn == ra) {
+    for(int i=0; i<rn; i++) {
+      jointiter = jointdata.find(_msg->robot_name(i));
+      if(jointiter != jointdata.end()) {
+        positions[jointiter->second.simulator_name] = _msg->robot_angle(i) + jointiter->second.offset;
+      }
+    }
+
+    jointiter = jointdata.end();
+    this->model->SetJointPositions(positions);
+  }
+  else {
+    gzerr << "not all joints have name and angle set\n";
+  }
+
+  math::Pose pose;
+
+  pose.pos.x = _msg->pos_x() + this->position_x_offset;
+  pose.pos.y = _msg->pos_y() + this->position_y_offset;
+  if(_msg->has_pos_z())
+    pose.pos.z = _msg->pos_z() + this->position_z_offset;
+  else {
+    pose.pos.z = 0.0 + this->position_z_offset;
+  }
+
+  if(_msg->has_ori_w())
+    pose.rot.w = _msg->ori_w() + this->orientation_w_offset;
+  else
+    pose.rot.w = 0.0 + this->orientation_w_offset;
+
+  if(_msg->has_ori_x())
+    pose.rot.x = _msg->ori_x() + this->orientation_x_offset;
+  else
+    pose.rot.x = 0.0 + this->orientation_x_offset;
+
+  if(_msg->has_ori_y())
+    pose.rot.y = _msg->ori_y() + this->orientation_y_offset;
+  else
+    pose.rot.y = 0.0 + this->orientation_y_offset;
+
+  if(_msg->has_ori_z())
+    pose.rot.z = _msg->ori_z() + this->orientation_z_offset;
+  else
+    pose.rot.z = 0.0 + this->orientation_z_offset;
   
   this->model->SetWorldPose(pose);
 }
@@ -472,18 +550,41 @@ void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 	      src.add_robot_angle(jointiter->second.robot_angle);
     }
     math::Pose pose = this->model->GetWorldPose();
-    src.set_pos_x(pose.pos.x);
-    src.set_pos_y(pose.pos.y);
-    src.set_pos_z(pose.pos.z);
-    src.set_rot_w(pose.rot.w);
-    src.set_rot_x(pose.rot.y);
-    src.set_rot_y(pose.rot.y);
-    src.set_rot_z(pose.rot.z);
+    src.set_pos_x(pose.pos.x - this->position_x_offset);
+    src.set_pos_y(pose.pos.y - this->position_y_offset);
+    src.set_pos_z(pose.pos.z - this->position_z_offset);
+    src.set_ori_w(pose.rot.w - this->orientation_w_offset);
+    src.set_ori_x(pose.rot.x - this->orientation_x_offset);
+    src.set_ori_y(pose.rot.y - this->orientation_y_offset);
+    src.set_ori_z(pose.rot.z - this->orientation_z_offset);
 
     std::string *serializedData = response.mutable_serialized_data();
     src.SerializeToString(serializedData);
 
     this->srguiPub->Publish(response);
+  }
+  else if(_msg->request() == "get_offset") {
+    msgs::Pose offset;
+    response.set_id(_msg->id());
+    response.set_request(_msg->request());
+    response.set_response("success");
+    response.set_type(offset.GetTypeName());
+
+    msgs::Vector3d *pos = offset.mutable_position();
+    pos->set_x(this->position_x_offset);
+    pos->set_y(this->position_y_offset);
+    pos->set_z(this->position_z_offset);
+
+    msgs::Quaternion *ori = offset.mutable_orientation();
+    ori->set_x(this->orientation_x_offset);
+    ori->set_y(this->orientation_y_offset);
+    ori->set_z(this->orientation_z_offset);
+    ori->set_w(this->orientation_w_offset);
+
+    std::string *serializedData = response.mutable_serialized_data();
+    offset.SerializeToString(serializedData);
+
+    this->offsetPub->Publish(response);
   }
   else {
     response.set_response("unknown");

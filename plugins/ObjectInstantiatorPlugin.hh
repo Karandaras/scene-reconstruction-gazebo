@@ -22,7 +22,6 @@ namespace gazebo
           physics::ModelPtr   model;
           std::string         sdf_data;
           std::string         frame;
-          std::string         child_frame;
           std::string         objectids;
           common::Time        spawntime;
           common::Time        expiretime;
@@ -44,6 +43,7 @@ namespace gazebo
                                           statusSub;
       transport::PublisherPtr             srguiPub,
                                           framePub,
+                                          objectPub,
                                           statusPub;
       unsigned int                        object_count;
       common::Time                        object_lifetime,

@@ -42,6 +42,7 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->requestSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Request"), &ObjectInstantiatorPlugin::OnRequestMsg, this);
   this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/ObjectInstantiator"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
+  this->objectPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
 
@@ -206,6 +207,22 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 
     this->srguiPub->Publish(response);
   }
+  else if(_msg->request() == "get_object") {
+    std::list<SceneObject>::iterator it =  find(object_list.begin(), object_list.end(), _msg->data());
+    if(it != object_list.end()) {
+      msgs::String src;
+      response.set_type(src.GetTypeName());
+
+      src.set_data(it->frame);
+
+      std::string *serializedData = response.mutable_serialized_data();
+      src.SerializeToString(serializedData);
+    }
+    else {
+      response.set_response("success");
+    }
+    this->objectPub->Publish(response);
+  }
   else {
     response.set_response("unknown");
     msgs::String src;
@@ -301,7 +318,6 @@ bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObje
     _msg.set_ori_y(pose.rot.y);
     _msg.set_ori_z(pose.rot.z);
     _msg.set_frame(it->frame);
-    _msg.set_child_frame(it->child_frame);
     _msg.set_objectids(it->objectids);
     _msg.set_name(it->name);
     return true;
@@ -365,7 +381,6 @@ void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
         SceneObject so;
         so.type = obj.object_type();
         so.frame = obj.frame();
-        so.child_frame = obj.child_frame();
         so.objectids = obj.objectids();
 
         if(obj.has_spawntime()) {

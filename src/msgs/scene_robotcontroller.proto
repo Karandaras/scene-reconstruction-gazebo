@@ -17,9 +17,9 @@ message SceneRobotController
 	optional double pos_y			        = 7;
 	optional double pos_z			        = 8;
 	
-	optional double rot_w			        = 9;
-	optional double rot_x			        = 10;
-	optional double rot_y			        = 11;
-	optional double rot_z			        = 12;
+	optional double ori_x			        = 9;
+	optional double ori_y			        = 10;
+	optional double ori_z			        = 11;
+	optional double ori_w			        = 12;
 }
 

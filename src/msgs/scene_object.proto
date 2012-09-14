@@ -12,16 +12,15 @@ message SceneObject
 	required double pos_y			        = 3;
 	required double pos_z			        = 4;
 	
-	optional double ori_w			        = 5;
-	optional double ori_x			        = 6;
-	optional double ori_y			        = 7;
-	optional double ori_z			        = 8;
+	optional double ori_x			        = 5;
+	optional double ori_y			        = 6;
+	optional double ori_z			        = 7;
+	optional double ori_w			        = 8;
 
   required string frame             = 9;
-  required string child_frame       = 10;
-  required string objectids         = 11;
-  optional string name              = 12;
+  required string objectids         = 10;
+  optional string name              = 11;
 
-  optional double spawntime         = 13;
+  optional double spawntime         = 12;
 }
 

@@ -1,0 +1,23 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface TransformRequest
+/// \brief A message containing a transform request
+/// \verbatim
+
+message TransformRequest
+{
+  required string request       = 1;
+  required int32 id             = 2;
+  required string source_frame  = 3;
+  required string target_frame  = 4;
+  required double pos_x         = 5;
+  required double pos_y         = 6;
+  required double pos_z         = 7;
+  required double ori_x         = 8;
+  required double ori_y         = 9;
+  required double ori_z         = 10;
+  required double ori_w         = 11;
+}
+
+/// \endverbatim
