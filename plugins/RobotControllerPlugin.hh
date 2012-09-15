@@ -76,6 +76,7 @@ namespace gazebo
       std::vector<event::ConnectionPtr>           connections;
 
       physics::WorldPtr                           world;
+      boost::shared_ptr<gazebo::msgs::SceneRobotController const> initMsg;
 
     public: 
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
@@ -90,6 +91,7 @@ namespace gazebo
       void OnControlMsg(ConstMessage_VPtr &_msg);
       void OnSetupMsg(ConstSceneRobotControllerPtr &_msg);
       void OnInitMsg(ConstSceneRobotControllerPtr &_msg);
+      void InitMsg();
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnStatusMsg(ConstRequestPtr &_msg);
   };

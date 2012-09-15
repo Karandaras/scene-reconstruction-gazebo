@@ -38,14 +38,6 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->node = transport::NodePtr(new transport::Node());
   this->node->Init(_world->GetName());
 
-  this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
-  this->requestSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Request"), &ObjectInstantiatorPlugin::OnRequestMsg, this);
-  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/ObjectInstantiator"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
-  this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
-  this->objectPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
-  this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
-  this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
-
   if(_sdf->HasElement("settings_lifetime")) {
     std::string tmplifetime;
     double lifetime;
@@ -150,11 +142,20 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->connections.push_back(event::Events::ConnectWorldUpdateEnd(
           boost::bind(&ObjectInstantiatorPlugin::OnUpdate, this)));
 
+  this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
+  this->objectPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
+  this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
+  this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
+
   msgs::Response response;
   response.set_id(-1);
   response.set_request("status");
   response.set_response("ObjectInstantiator");
   this->statusPub->Publish(response);
+
+  this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
+  this->requestSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Request"), &ObjectInstantiatorPlugin::OnRequestMsg, this);
+  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/ObjectInstantiator"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
 }
 
 void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
@@ -207,7 +208,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 
     this->srguiPub->Publish(response);
   }
-  else if(_msg->request() == "get_object") {
+  else if(_msg->request() == "get_frame") {
     std::list<SceneObject>::iterator it =  find(object_list.begin(), object_list.end(), _msg->data());
     if(it != object_list.end()) {
       msgs::String src;
@@ -219,7 +220,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
       src.SerializeToString(serializedData);
     }
     else {
-      response.set_response("success");
+      response.set_response("object "+_msg->data()+" unknown");
     }
     this->objectPub->Publish(response);
   }
