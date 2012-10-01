@@ -17,26 +17,24 @@ namespace gazebo
 
     private:
       struct SceneObject{
-          std::string         name;
-          std::string         type;
+          std::string         object;
+          bool                visible;
           physics::ModelPtr   model;
-          std::string         sdf_data;
+          math::Pose          pose;
+          common::Time        buffertime;
+          std::string         query;
           std::string         frame;
-          std::string         objectids;
-          common::Time        spawntime;
-          common::Time        expiretime;
 
           bool operator<(SceneObject comp) const {
-            return spawntime<comp.spawntime;
+            return buffertime<comp.buffertime;
           }
           bool operator==(std::string comp) const {
-            return name==comp;
+            return object==comp;
           }
       };
 
-      std::list< SceneObject >            object_list;
-      std::list< SceneObject >            object_spawn_list;
-      std::map<std::string, std::string>  objects;
+      std::map<std::string, SceneObject>  object_list;
+      std::list<SceneObject>              object_buffer;
       transport::NodePtr                  node;
       transport::SubscriberPtr            objectSub,
                                           requestSub,
@@ -46,13 +44,13 @@ namespace gazebo
                                           objectPub,
                                           statusPub;
       unsigned int                        object_count;
-      common::Time                        object_lifetime,
-                                          next_spawn,
-                                          next_expire;
+      common::Time                        next_buffer;
       physics::WorldPtr                   world;
       boost::mutex                       *receiveMutex;
-      std::list<msgs::Message_V>          objectMsgs;
+      std::list<msgs::SceneObject_V>      objectMsgs;
       std::vector<event::ConnectionPtr>   connections;
+      math::Pose                          out_of_sight;
+      math::Vector3                       position_offset;
 
     public: 
       void virtual Init();
@@ -60,18 +58,16 @@ namespace gazebo
       void virtual Load(physics::WorldPtr, sdf::ElementPtr);
 
     private:
-      void OnSceneObjectMsg(ConstMessage_VPtr &_msg);
+      void OnSceneObjectMsg(ConstSceneObject_VPtr &_msg);
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnStatusMsg(ConstRequestPtr &_msg);
       void OnUpdate();
       void ProcessSceneObjectMsgs();
-      void SpawnObjects(common::Time now);
-      void DeleteObjects(common::Time now);
+      void UpdateObjects(common::Time now);
+      void update_object(SceneObject obj);
       bool fill_object_msg(std::string name, msgs::SceneObject &_msg);
       void fill_list_msg(msgs::String_V &_msg);
       void fill_repository_msg(msgs::String_V &_msg);
-      std::string set_sdf_values(std::string &_sdf, std::string name, double pos_x, double pos_y, double pos_z, double rot_r, double rot_p, double rot_y);
-      void sdf_replace(std::string &text, std::string from, std::string to);
   };
   GZ_REGISTER_WORLD_PLUGIN(ObjectInstantiatorPlugin)
 } 

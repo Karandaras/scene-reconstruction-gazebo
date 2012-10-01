@@ -5,22 +5,16 @@ package gazebo.msgs;
 /// \brief Objectdata for the ObjectInstantiatorPlugin
 /// \verbatim
 
+import "pose.proto";
+
 message SceneObject
 {
-  required string object_type       = 1;
-	required double pos_x			        = 2;
-	required double pos_y			        = 3;
-	required double pos_z			        = 4;
-	
-	optional double ori_x			        = 5;
-	optional double ori_y			        = 6;
-	optional double ori_z			        = 7;
-	optional double ori_w			        = 8;
-
-  required string frame             = 9;
-  required string objectids         = 10;
-  optional string name              = 11;
-
-  optional double spawntime         = 12;
+  required string object  = 1;
+  required bool   visible = 2;
+  optional string model   = 3;
+  required Pose   pose    = 4;
+  optional double time    = 5;
+  optional string query   = 6;
+  optional string frame   = 7;
 }
 

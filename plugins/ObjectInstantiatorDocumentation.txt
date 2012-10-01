@@ -1,13 +1,5 @@
 ObjectInstantiatorPlugin Documentation
 
-settings Elements
-
-settings_lifetime Element (optional)(double) (default 0.5 seconds)
-    Time after which an object gets deleted, set this to the 
-    time that passes between checks for new objects for best
-    results
-
-
 object Element (required)(1..n)
     string to identify the childs of this rcjoint (no spaces allowed)
 
@@ -15,33 +7,10 @@ object Element (required)(1..n)
     (replace * by the string encapsulated by rcjoint)
     Name of the Object for the repository
 
-  filename_* Element (required)(string)
+  model_* Element (required)(string)
     (replace * by the string encapsulated by rcjoint)
-    filename of a file containing the sdf data of the model
-    either use full path or place the file inside the
-    models subdirectory inside the GAZEBO_RESOURCE_PATH
+    Name of the model inside the simulation
 
-The following tags can be used inside the sdf file or string
-and will be replaced by the data included in the message
-@NAME@ => modelname
-@POSX@ => pos_x
-@POSY@ => pos_y
-@POSZ@ => pos_z
-@ROTR@ => rotation roll
-@ROTP@ => rotation pitch
-@ROTY@ => rotation yaw
-
-And these can be used to adjust the object using the elements of the
-plugin if the model supports it
-@SCALE@       => three doubles X Y Z defaul 1 1 1
-@HEIGHT@      => double default 1
-@COLORRGBA@   => four doubles R G B A range 0 to 1 default 0 0 0 1 (black)
-@COLORSCRIPT@ => gazebo script name default Gazebo/FlatBlack
-
-Those tags have to be used instead of the the values.
-Tag Example:
-    <origin pose="@POSX@ @POSY@ @POSZ@ @ROTR@ @ROTP@ @ROTY@"/>   <-- right
-    <origin pose=@POSX@ @POSY@ @POSZ@ @ROTR@ @ROTP@ @ROTY@/>     <-- wrong because quotes are missing
 
 
 
@@ -49,11 +18,8 @@ Tag Example:
 
 Example:
 <plugin name="ObjectInstantiatorPlugin" filename="libObjectInstantiatorPlugin.so">
-  <settings_lifetime>0.5</settings_lifetime>
   <object>1</object>
     <name_1>Cup</name_1>
-    <filename_1>cup.model</filename_1>
-    <scale_1>1 1 1</scale_1>
-    <colorrgba_1>1 0.5 0 1</colorrgba>
+    <model_1>cup1</model_1>
 </plugin>
 

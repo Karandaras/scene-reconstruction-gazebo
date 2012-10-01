@@ -18,10 +18,13 @@ namespace gazebo
     private:
       struct JointData {
           std::string simulator_name;
+          std::string simulator_name2;
           std::string robot_name;
+          bool gripper;
           double offset;
           double simulator_angle;
           double robot_angle;
+          double factor;
       };
 
       struct JointCommand {
@@ -45,7 +48,6 @@ namespace gazebo
       transport::NodePtr                          node;
       transport::SubscriberPtr                    controlSub, 
                                                   srguiSub,
-                                                  setupSub,
                                                   initSub,
                                                   statusSub;
       transport::PublisherPtr                     srguiPub,
@@ -53,7 +55,8 @@ namespace gazebo
                                                   statusPub;
 
       common::Time                                next_joint_control,
-                                                  next_robot_control;
+                                                  next_robot_control,
+                                                  lastinfo;
 
       physics::ModelPtr                           model;
       boost::mutex                               *receiveMutex,
@@ -65,18 +68,16 @@ namespace gazebo
       std::list<JointCommand>                     jointControlList;
       std::list<RobotCommand>                     robotControlList;
 
-      double                                      position_x_offset,
-                                                  position_y_offset,
-                                                  position_z_offset,
-                                                  orientation_w_offset,
-                                                  orientation_x_offset,
-                                                  orientation_y_offset,
-                                                  orientation_z_offset;
+      math::Vector3                               position_offset;
 
       std::vector<event::ConnectionPtr>           connections;
 
       physics::WorldPtr                           world;
       boost::shared_ptr<gazebo::msgs::SceneRobotController const> initMsg;
+
+      std::map<std::string,double>                currentjointpositions;
+      math::Pose                                  currentpose;
+      bool                                        setpose;
 
     public: 
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
@@ -89,7 +90,6 @@ namespace gazebo
       void ControlRobot(common::Time now);
       void OnUpdate();
       void OnControlMsg(ConstMessage_VPtr &_msg);
-      void OnSetupMsg(ConstSceneRobotControllerPtr &_msg);
       void OnInitMsg(ConstSceneRobotControllerPtr &_msg);
       void InitMsg();
       void OnRequestMsg(ConstRequestPtr &_msg);

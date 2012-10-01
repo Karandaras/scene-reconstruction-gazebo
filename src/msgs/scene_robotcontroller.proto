@@ -9,17 +9,19 @@ message SceneRobotController
 {
 	repeated string simulator_name 		= 1;
   repeated string robot_name        = 2;
-	repeated double offset			      = 3;
-	repeated double simulator_angle		= 4;
-	repeated double robot_angle		    = 5;
+	repeated bool   gripper           = 3;
+	repeated string simulator_name2   = 4;
+	repeated double offset			      = 5;
+	repeated double simulator_angle		= 6;
+	repeated double robot_angle		    = 7;
 
-	optional double pos_x			        = 6;
-	optional double pos_y			        = 7;
-	optional double pos_z			        = 8;
+	optional double pos_x			        = 8;
+	optional double pos_y			        = 9;
+	optional double pos_z			        = 10;
 	
-	optional double ori_x			        = 9;
-	optional double ori_y			        = 10;
-	optional double ori_z			        = 11;
-	optional double ori_w			        = 12;
+	optional double ori_x			        = 11;
+	optional double ori_y			        = 12;
+	optional double ori_z			        = 13;
+	optional double ori_w			        = 14;
 }
 
