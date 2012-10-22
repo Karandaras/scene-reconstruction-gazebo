@@ -1,0 +1,16 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Buffer Objects
+/// \brief Message that is used to hold the data of the objects buffer
+/// \verbatim
+
+import "scene_object.proto";
+
+message BufferObjects
+{
+  required double timestamp      = 1;
+  repeated SceneObject object    = 2;
+}
+
+/// \endverbatim

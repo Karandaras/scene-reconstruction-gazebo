@@ -180,7 +180,7 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
           if(!j) {
             gzerr << "unable to find joint " << gname << "\n";
           } else {
-            double simangle = j->GetAngle(0).GetAsRadian();
+            double simangle = j->GetAngle(0).Radian();
 
             this->jointdata[fname].simulator_name = gname;
             this->jointdata[fname].robot_name = fname;
@@ -211,6 +211,7 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->srguiPub = this->node->Advertise<msgs::SceneRobotController>(std::string("~/SceneReconstruction/RobotController/ControllerInfo"));
   this->offsetPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
+  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
 
   // connect update to worldupdate
   this->connections.push_back(event::Events::ConnectWorldUpdateEnd(
@@ -288,6 +289,14 @@ void RobotControllerPlugin::OnUpdate()
 
   this->model->SetJointPositions(currentjointpositions);
   this->model->SetRelativePose(currentpose);
+
+  msgs::Message_V jointbuffer;
+  fill_joint_buffer_msg(jointbuffer);
+  bufferPub->Publish(jointbuffer);
+
+  msgs::Message_V positionbuffer;
+  fill_position_buffer_msg(positionbuffer);
+  bufferPub->Publish(positionbuffer);
 }
 
 void RobotControllerPlugin::ControlJoints(common::Time now) {
@@ -546,4 +555,44 @@ void RobotControllerPlugin::OnStatusMsg(ConstRequestPtr &_msg) {
     this->statusPub->Publish(response);
   }
 }
+
+void RobotControllerPlugin::fill_joint_buffer_msg(msgs::Message_V &_msg) {
+  std::list<JointCommand>::iterator it;
+  common::Time time(0.0);
+  msgs::BufferJoints jnt;
+  _msg.set_msgtype(jnt.GetTypeName());
+  for(it = jointControlList.begin(); it != jointControlList.end(); it++) {
+    if(time != it->controltime) {
+      if(time != 0.0) {
+        std::string *msg = _msg.add_msgsdata();
+        jnt.SerializeToString(msg);
+      }
+      time = it->controltime;
+      jnt.clear_name();
+      jnt.clear_angle();
+      jnt.set_timestamp(time.Double());
+    }
+
+    std::map<std::string, double>::iterator joint;
+    for(joint = it->positions.begin(); joint != it->positions.end(); joint++) {
+      jnt.add_name(joint->first);
+      jnt.add_angle(joint->second);
+    }
+  }
+}
+
+void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
+  std::list<RobotCommand>::iterator it;
+  msgs::BufferPosition pos;
+  _msg.set_msgtype(pos.GetTypeName());
+  for(it = robotControlList.begin(); it != robotControlList.end(); it++) {
+    pos.set_timestamp(it->controltime.Double());
+    msgs::Pose *pose = pos.mutable_position();
+    msgs::Set(pose, it->pose);
+
+    std::string *msg = _msg.add_msgsdata();
+    pos.SerializeToString(msg);
+  }
+}
+
 

@@ -52,6 +52,7 @@ namespace gazebo
                                                   statusSub;
       transport::PublisherPtr                     srguiPub,
                                                   offsetPub,
+                                                  bufferPub,
                                                   statusPub;
 
       common::Time                                next_joint_control,
@@ -94,6 +95,8 @@ namespace gazebo
       void InitMsg();
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnStatusMsg(ConstRequestPtr &_msg);
+      void fill_joint_buffer_msg(msgs::Message_V &_msg);
+      void fill_position_buffer_msg(msgs::Message_V &_msg);
   };
 }
 #endif

@@ -1,0 +1,15 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface BufferJoints 
+/// \brief Message that is used to hold the data of the joint buffer
+/// \verbatim
+
+message BufferJoints
+{
+  required double timestamp            = 1;
+  repeated string name                 = 2;
+  repeated double angle                = 3;
+}
+
+/// \endverbatim

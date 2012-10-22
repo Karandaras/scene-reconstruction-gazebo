@@ -147,6 +147,7 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->objectPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
+  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
 
   msgs::Response response;
   response.set_id(-1);
@@ -166,7 +167,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
   response.set_response("success");
 
   if(_msg->request() == "object_list") {
-    msgs::String_V src;
+    msgs::GzString_V src;
     response.set_type(src.GetTypeName());
     fill_list_msg(src);
     std::string *serializedData = response.mutable_serialized_data();
@@ -190,7 +191,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
     }
     else {
       response.set_response("failure");
-      msgs::String src;
+      msgs::GzString src;
       response.set_type(src.GetTypeName());
       src.set_data(_msg->data()+" not an object known to the objectinstantiator");
       std::string *serializedData = response.mutable_serialized_data();
@@ -200,7 +201,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
     }
   }
   else if(_msg->request() == "object_repository") {
-    msgs::String_V src;
+    msgs::GzString_V src;
     response.set_type(src.GetTypeName());
     fill_repository_msg(src);
     std::string *serializedData = response.mutable_serialized_data();
@@ -211,7 +212,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
   else if(_msg->request() == "get_frame") {
     std::map<std::string, SceneObject>::iterator it =  object_list.find(_msg->data());
     if(it != object_list.end()) {
-      msgs::String src;
+      msgs::GzString src;
       response.set_type(src.GetTypeName());
 
       src.set_data(it->second.frame);
@@ -226,7 +227,7 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
   }
   else {
     response.set_response("unknown");
-    msgs::String src;
+    msgs::GzString src;
     response.set_type(src.GetTypeName());
     src.set_data("the given request is unknown to the objectinstantiator");
     std::string *serializedData = response.mutable_serialized_data();
@@ -252,6 +253,10 @@ void ObjectInstantiatorPlugin::OnUpdate() {
   common::Time now = common::Time(world->GetSimTime());
   this->ProcessSceneObjectMsgs();
   this->UpdateObjects(now);
+
+  msgs::Message_V buffer;
+  fill_buffer_msg(buffer);
+  bufferPub->Publish(buffer);
 }
 
 void ObjectInstantiatorPlugin::UpdateObjects(common::Time now) {
@@ -322,7 +327,7 @@ bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObje
   return false;
 }
 
-void ObjectInstantiatorPlugin::fill_list_msg(msgs::String_V &_msg) {
+void ObjectInstantiatorPlugin::fill_list_msg(msgs::GzString_V &_msg) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
 
   std::map<std::string, SceneObject>::iterator it;
@@ -331,10 +336,36 @@ void ObjectInstantiatorPlugin::fill_list_msg(msgs::String_V &_msg) {
   }
 }
 
-void ObjectInstantiatorPlugin::fill_repository_msg(msgs::String_V &_msg) {
+void ObjectInstantiatorPlugin::fill_repository_msg(msgs::GzString_V &_msg) {
   std::map<std::string, SceneObject>::iterator it;
   for(it = object_list.begin(); it != object_list.end(); it++) {
     _msg.add_data(it->first);
+  }
+}
+
+void ObjectInstantiatorPlugin::fill_buffer_msg(msgs::Message_V &_msg) {
+  std::list<SceneObject>::iterator it;
+  common::Time time(0.0);
+  msgs::BufferObjects obj;
+  _msg.set_msgtype(obj.GetTypeName());
+  for(it = object_buffer.begin(); it != object_buffer.end(); it++) {
+    if(time != it->buffertime) {
+      if(time != 0.0) {
+        std::string *msg = _msg.add_msgsdata();
+        obj.SerializeToString(msg);
+      }
+      time = it->buffertime;
+      obj.clear_object();
+      obj.set_timestamp(time.Double());
+    }
+
+    msgs::SceneObject *object = obj.add_object();
+    object->set_object(it->object);
+    object->set_visible(it->visible);
+    object->set_model(it->model->GetName());
+    msgs::Pose *pose = object->mutable_pose();
+    msgs::Set(pose, it->pose);
+    object->set_query(it->query);
   }
 }
 

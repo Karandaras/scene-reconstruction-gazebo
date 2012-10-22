@@ -1,0 +1,19 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Scene Object
+/// \brief Objectdata for the ObjectInstantiatorPlugin
+/// \verbatim
+
+import "pose.proto";
+
+message SceneObject
+{
+  required string object  = 1;
+  required bool   visible = 2;
+  optional string model   = 3;
+  required Pose   pose    = 4;
+  optional double time    = 5;
+  optional string query   = 6;
+}
+

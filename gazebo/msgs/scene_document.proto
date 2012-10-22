@@ -1,0 +1,17 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Scene Object Data
+/// \brief Objectdata for the ObjectInstantiatorPlugin from the Framework
+/// \verbatim
+
+import "image.proto";
+
+message SceneDocument
+{
+  required string interface         = 1;
+  required double timestamp         = 2;
+  optional Image image              = 3;
+  required string document          = 4;
+}
+

@@ -42,6 +42,7 @@ namespace gazebo
       transport::PublisherPtr             srguiPub,
                                           framePub,
                                           objectPub,
+                                          bufferPub,
                                           statusPub;
       unsigned int                        object_count;
       common::Time                        next_buffer;
@@ -66,8 +67,9 @@ namespace gazebo
       void UpdateObjects(common::Time now);
       void update_object(SceneObject obj);
       bool fill_object_msg(std::string name, msgs::SceneObject &_msg);
-      void fill_list_msg(msgs::String_V &_msg);
-      void fill_repository_msg(msgs::String_V &_msg);
+      void fill_list_msg(msgs::GzString_V &_msg);
+      void fill_repository_msg(msgs::GzString_V &_msg);
+      void fill_buffer_msg(msgs::Message_V &_msg);
   };
   GZ_REGISTER_WORLD_PLUGIN(ObjectInstantiatorPlugin)
 } 

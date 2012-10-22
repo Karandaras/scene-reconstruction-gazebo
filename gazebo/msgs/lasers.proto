@@ -1,0 +1,14 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface RobotController Lasers 
+/// \brief Lasers message
+/// \verbatim
+
+message Lasers
+{
+  repeated string interface = 1;
+  repeated bool visible     = 2;
+}
+
+/// \endverbatim

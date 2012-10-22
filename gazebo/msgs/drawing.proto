@@ -1,0 +1,39 @@
+package gazebo.msgs;
+
+/// \ingroup gazebo_msgs
+/// \interface Drawing 
+/// \brief Message that is used to draw inside gazebo
+/// \verbatim
+
+import "vector3d.proto";
+import "pose.proto";
+import "color.proto";
+
+message Drawing
+{
+  enum Mode
+  {
+    POINT_LIST     = 1;
+    LINE_LIST      = 2;
+    LINE_STRIP     = 3;
+    TRIANGLE_LIST  = 4;
+    TRIANGLE_STRIP = 5;
+    TRIANGLE_FAN   = 6;
+  }
+  
+  message Point
+  {
+    required Vector3d position  = 1;
+    optional Color color        = 2;
+  }
+
+
+  required string name          = 1;
+  required bool visible         = 2;
+  optional Pose pose            = 3;
+  optional string material      = 4;
+  optional Mode mode            = 5;
+  repeated Point point          = 6;
+}
+
+/// \endverbatim

@@ -13,3 +13,6 @@
 
 # temporary files from gedit
 *~
+
+# the build directory
+build/
