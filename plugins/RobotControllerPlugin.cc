@@ -227,7 +227,6 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->initSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Init"), &RobotControllerPlugin::OnInitMsg, this);
   this->srguiSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Request"), &RobotControllerPlugin::OnRequestMsg, this);
   this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/RobotController"), &RobotControllerPlugin::OnStatusMsg, this);
-
 }
 
 /////////////////////////////////////////////////
@@ -236,10 +235,14 @@ void RobotControllerPlugin::Init()
   this->next_joint_control = common::Time(world->GetSimTime());
   this->next_robot_control = common::Time(world->GetSimTime());
   setpose = false;
+  update_position_buffer = false;
+  update_joint_buffer = false;
 }
 
 void RobotControllerPlugin::Reset()
 {
+  update_position_buffer = false;
+  update_joint_buffer = false;
   this->next_joint_control = common::Time(world->GetSimTime());
   this->next_robot_control = common::Time(world->GetSimTime());
   jointControlList.clear();
@@ -290,18 +293,25 @@ void RobotControllerPlugin::OnUpdate()
   this->model->SetJointPositions(currentjointpositions);
   this->model->SetRelativePose(currentpose);
 
-  msgs::Message_V jointbuffer;
-  fill_joint_buffer_msg(jointbuffer);
-  bufferPub->Publish(jointbuffer);
+  if(update_joint_buffer) {
+    update_joint_buffer = false;
+    msgs::Message_V jointbuffer;
+    fill_joint_buffer_msg(jointbuffer);
+    bufferPub->Publish(jointbuffer);
+  }
 
-  msgs::Message_V positionbuffer;
-  fill_position_buffer_msg(positionbuffer);
-  bufferPub->Publish(positionbuffer);
+  if(update_position_buffer) {
+    update_position_buffer = false;
+    msgs::Message_V positionbuffer;
+    fill_position_buffer_msg(positionbuffer);
+    bufferPub->Publish(positionbuffer);
+  }
 }
 
 void RobotControllerPlugin::ControlJoints(common::Time now) {
   boost::mutex::scoped_lock lock(*this->jointMutex);
   if(now >= this->next_joint_control) {
+    update_joint_buffer = true;
     // process JointCommand list
     this->next_joint_control = now + common::Time(1);
     std::list< JointCommand >::iterator it;
@@ -340,6 +350,7 @@ void RobotControllerPlugin::ControlJoints(common::Time now) {
 void RobotControllerPlugin::ControlRobot(common::Time now) {
   boost::mutex::scoped_lock lock(*this->robotMutex);
   if(now >= this->next_robot_control) {
+    update_position_buffer = true;
     this->next_robot_control = now + common::Time(1);
     std::list< RobotCommand >::iterator it;
     std::list< RobotCommand > newRobotList;
@@ -365,6 +376,8 @@ void RobotControllerPlugin::ProcessControlMsgs() {
   boost::mutex::scoped_lock lockr(*this->robotMutex);
   boost::mutex::scoped_lock lockj(*this->jointMutex);
   std::list<msgs::Message_V>::iterator _msg;
+  unsigned int jcl = jointControlList.size();
+  unsigned int rcl = robotControlList.size();
   for (_msg = this->controlMsgs.begin(); _msg != this->controlMsgs.end(); ++_msg) {
     msgs::SceneJoint joint;
     msgs::SceneRobot robot;
@@ -443,6 +456,11 @@ void RobotControllerPlugin::ProcessControlMsgs() {
       gzwarn << "message of unknown type\n";
     }
   }
+
+  if(jcl != jointControlList.size())
+    update_joint_buffer = true;
+  if(rcl != robotControlList.size())
+    update_position_buffer = true;
 
   jointControlList.sort();
   robotControlList.sort();

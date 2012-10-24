@@ -17,6 +17,7 @@ ObjectInstantiatorPlugin::ObjectInstantiatorPlugin() : WorldPlugin()
 void ObjectInstantiatorPlugin::Init() {
   this->next_buffer = common::Time(world->GetSimTime());
   out_of_sight.pos.z = -10.0;
+  update_object_buffer = false;
 }
 
 void ObjectInstantiatorPlugin::Reset() {
@@ -24,6 +25,7 @@ void ObjectInstantiatorPlugin::Reset() {
   this->objectMsgs.clear();
   this->object_buffer.clear();
   this->object_count = 0;
+  update_object_buffer = false;
 
   std::map<std::string, SceneObject>::iterator iter;
   for(iter = object_list.begin(); iter != object_list.end(); iter++) {
@@ -254,16 +256,20 @@ void ObjectInstantiatorPlugin::OnUpdate() {
   this->ProcessSceneObjectMsgs();
   this->UpdateObjects(now);
 
-  msgs::Message_V buffer;
-  fill_buffer_msg(buffer);
-  bufferPub->Publish(buffer);
+  if(update_object_buffer) {
+    update_object_buffer = false;
+    msgs::Message_V buffer;
+    fill_buffer_msg(buffer);
+    bufferPub->Publish(buffer);
+  }
 }
 
 void ObjectInstantiatorPlugin::UpdateObjects(common::Time now) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
 
   if(now >= this->next_buffer) {
-    this->next_buffer = now + common::Time(1.5);
+    update_object_buffer = true;
+    this->next_buffer = now + common::Time(1);
     std::list<SceneObject>::iterator it;
     std::list<SceneObject> new_object_buffer;
     for(it = object_buffer.begin(); it != object_buffer.end(); it++) {
@@ -377,8 +383,11 @@ void ObjectInstantiatorPlugin::OnSceneObjectMsg(ConstSceneObject_VPtr &_msg) {
 void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
   std::list<msgs::SceneObject_V>::iterator _msg;
+  if(!objectMsgs.empty())
+    update_object_buffer = true;
+
   for (_msg = this->objectMsgs.begin(); _msg != this->objectMsgs.end(); ++_msg) {
-    // add new objects
+   // add new objects
     int o,v,p,t,q,f;
     o = _msg->object_size();
     v = _msg->visible_size();

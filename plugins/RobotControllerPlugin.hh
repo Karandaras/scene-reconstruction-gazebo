@@ -78,7 +78,9 @@ namespace gazebo
 
       std::map<std::string,double>                currentjointpositions;
       math::Pose                                  currentpose;
-      bool                                        setpose;
+      bool                                        setpose,
+                                                  update_joint_buffer,
+                                                  update_position_buffer;
 
     public: 
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);

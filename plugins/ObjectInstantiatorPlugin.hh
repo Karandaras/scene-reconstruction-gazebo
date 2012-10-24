@@ -52,6 +52,7 @@ namespace gazebo
       std::vector<event::ConnectionPtr>   connections;
       math::Pose                          out_of_sight;
       math::Vector3                       position_offset;
+      bool                                update_object_buffer;
 
     public: 
       void virtual Init();
