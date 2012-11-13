@@ -227,6 +227,8 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->initSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Init"), &RobotControllerPlugin::OnInitMsg, this);
   this->srguiSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Request"), &RobotControllerPlugin::OnRequestMsg, this);
   this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/RobotController"), &RobotControllerPlugin::OnStatusMsg, this);
+  this->positionSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/BufferPosition"), &RobotControllerPlugin::OnPositionMsg, this);
+  this->anglesSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/BufferJoints"), &RobotControllerPlugin::OnAnglesMsg, this);
 }
 
 /////////////////////////////////////////////////
@@ -234,7 +236,6 @@ void RobotControllerPlugin::Init()
 {
   this->next_joint_control = common::Time(world->GetSimTime());
   this->next_robot_control = common::Time(world->GetSimTime());
-  setpose = false;
   update_position_buffer = false;
   update_joint_buffer = false;
 }
@@ -613,4 +614,37 @@ void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
   }
 }
 
+void RobotControllerPlugin::OnPositionMsg(ConstBufferPositionPtr &_msg) {
+  if(_msg->timestamp() < 0.0)
+    this->model->SetRelativePose(currentpose);
+  else
+    this->model->SetRelativePose(msgs::Convert(_msg->position()));
+}
+
+void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
+  if(_msg->timestamp() < 0.0)
+    this->model->SetJointPositions(currentjointpositions);
+  else {
+    int n, a;
+    n = _msg->name_size();
+    a = _msg->angle_size();
+    if(a == n) {
+      std::map<std::string, double> bufferpositions(currentjointpositions.begin(), currentjointpositions.end());
+
+      for(int i=0; i<a; i++) {
+        jointiter = jointdata.find(_msg->name(i));
+        if(jointiter != jointdata.end()) {
+          bufferpositions[jointiter->second.simulator_name] = _msg->angle(i)*this->jointiter->second.factor + jointiter->second.offset;
+          if(jointiter->second.gripper) {
+            bufferpositions[jointiter->second.simulator_name2] = _msg->angle(i)*this->jointiter->second.factor + jointiter->second.offset;
+          }
+        }
+      }
+
+      jointiter = jointdata.end();
+   
+      this->model->SetJointPositions(bufferpositions);
+    }
+  }
+}
 

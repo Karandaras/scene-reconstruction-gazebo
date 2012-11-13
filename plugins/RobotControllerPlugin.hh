@@ -49,6 +49,8 @@ namespace gazebo
       transport::SubscriberPtr                    controlSub, 
                                                   srguiSub,
                                                   initSub,
+                                                  positionSub,
+                                                  anglesSub,
                                                   statusSub;
       transport::PublisherPtr                     srguiPub,
                                                   offsetPub,
@@ -78,8 +80,7 @@ namespace gazebo
 
       std::map<std::string,double>                currentjointpositions;
       math::Pose                                  currentpose;
-      bool                                        setpose,
-                                                  update_joint_buffer,
+      bool                                        update_joint_buffer,
                                                   update_position_buffer;
 
     public: 
@@ -97,6 +98,8 @@ namespace gazebo
       void InitMsg();
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnStatusMsg(ConstRequestPtr &_msg);
+      void OnPositionMsg(ConstBufferPositionPtr &_msg);
+      void OnAnglesMsg(ConstBufferJointsPtr &_msg);
       void fill_joint_buffer_msg(msgs::Message_V &_msg);
       void fill_position_buffer_msg(msgs::Message_V &_msg);
   };

@@ -148,8 +148,17 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->srguiPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/ObjectInstantiator/Response"));
   this->objectPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
+  this->requestPub = this->node->Advertise<msgs::Request>(std::string("~/request"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
   this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
+
+  std::map<std::string, SceneObject>::iterator obj; 
+  for(obj = object_list.begin(); obj != object_list.end(); obj++) {
+    msgs::Request *req;
+    req = msgs::CreateRequest("set_transparency", obj->second.object+"_clone");
+    req->set_dbl_data(0.75);
+    requestPub->Publish(*req);
+  }
 
   msgs::Response response;
   response.set_id(-1);
@@ -158,6 +167,7 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->statusPub->Publish(response);
 
   this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
+  this->bufferSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/BufferObject"), &ObjectInstantiatorPlugin::OnBufferObjectMsg, this);
   this->requestSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Request"), &ObjectInstantiatorPlugin::OnRequestMsg, this);
   this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/ObjectInstantiator"), &ObjectInstantiatorPlugin::OnStatusMsg, this);
 }
@@ -378,6 +388,31 @@ void ObjectInstantiatorPlugin::fill_buffer_msg(msgs::Message_V &_msg) {
 void ObjectInstantiatorPlugin::OnSceneObjectMsg(ConstSceneObject_VPtr &_msg) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
   this->objectMsgs.push_back(*_msg);
+}
+
+void ObjectInstantiatorPlugin::OnBufferObjectMsg(ConstBufferObjectsPtr &_msg) {
+  if(_msg->timestamp() < 0.0) {
+    std::map<std::string, SceneObject>::iterator iter;
+    for(iter = object_list.begin(); iter != object_list.end(); iter++) {
+      physics::ModelPtr mdl = world->GetModel(iter->first+"_clone");
+      if(mdl) {
+        mdl->SetWorldPose(out_of_sight);
+      }
+    }
+  }
+  else {
+    int o = _msg->object_size();
+    for(int i=0; i<o; i++) {
+      physics::ModelPtr mdl = world->GetModel(_msg->object(i).object()+"_clone");
+      if(mdl) {
+        // Move mdl
+        if(_msg->object(i).visible())
+          mdl->SetWorldPose(msgs::Convert(_msg->object(i).pose()));
+        else
+          mdl->SetWorldPose(out_of_sight);
+      }
+    }
+  }
 }
 
 void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {

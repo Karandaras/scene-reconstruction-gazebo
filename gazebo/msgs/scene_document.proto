@@ -6,12 +6,14 @@ package gazebo.msgs;
 /// \verbatim
 
 import "image.proto";
+import "drawing.proto";
 
 message SceneDocument
 {
   required string interface         = 1;
   required double timestamp         = 2;
   optional Image image              = 3;
-  required string document          = 4;
+  optional Drawing pointcloud       = 4;
+  required string document          = 5;
 }
 

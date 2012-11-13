@@ -38,9 +38,11 @@ namespace gazebo
       transport::NodePtr                  node;
       transport::SubscriberPtr            objectSub,
                                           requestSub,
+                                          bufferSub,
                                           statusSub;
       transport::PublisherPtr             srguiPub,
                                           framePub,
+                                          requestPub,
                                           objectPub,
                                           bufferPub,
                                           statusPub;
@@ -61,6 +63,7 @@ namespace gazebo
 
     private:
       void OnSceneObjectMsg(ConstSceneObject_VPtr &_msg);
+      void OnBufferObjectMsg(ConstBufferObjectsPtr &_msg);
       void OnRequestMsg(ConstRequestPtr &_msg);
       void OnStatusMsg(ConstRequestPtr &_msg);
       void OnUpdate();
