@@ -8,7 +8,7 @@ enable_testing()
 
 # with -fPIC
 if(UNIX AND NOT WIN32)
- set (CMAKE_INSTALL_PREFIX "/usr" CACHE STRING "Install Prefix")
+  set (CMAKE_INSTALL_PREFIX "/usr" CACHE STRING "Install Prefix")
  find_program(CMAKE_UNAME uname /bin /usr/bin /usr/local/bin )
  if(CMAKE_UNAME)
    exec_program(uname ARGS -m OUTPUT_VARIABLE CMAKE_SYSTEM_PROCESSOR)
@@ -26,7 +26,7 @@ string (TOLOWER ${PROJECT_NAME} PROJECT_NAME_LOWER)
 set (GAZEBO_VERSION_NAME "helium")
 set (GAZEBO_MAJOR_VERSION 1)
 set (GAZEBO_MINOR_VERSION 2)
-set (GAZEBO_PATCH_VERSION 3)
+set (GAZEBO_PATCH_VERSION 6)
 
 set (GAZEBO_VERSION ${GAZEBO_MAJOR_VERSION}.${GAZEBO_MINOR_VERSION})
 set (GAZEBO_VERSION_FULL ${GAZEBO_MAJOR_VERSION}.${GAZEBO_MINOR_VERSION}.${GAZEBO_PATCH_VERSION})
@@ -90,7 +90,7 @@ include (${gazebo_cmake_dir}/DissectVersion.cmake)
 
 #####################################
 # Build type cflags
-set (CMAKE_C_FLAGS_ALL " -fPIC -Wall -Wextra -Wno-long-long -Wno-unused-value -Wno-unused-value -Wno-unused-value -Wno-unused-value -Wfloat-equal -Wshadow -Winit-self -Wswitch-default -Wmissing-include-dirs -pedantic" CACHE INTERNAL "General C Flags")
+set (CMAKE_C_FLAGS_ALL " -Wall -Wextra -Wno-long-long -Wno-unused-value -Wno-unused-value -Wno-unused-value -Wno-unused-value -Wfloat-equal -Wshadow -Winit-self -Wswitch-default -Wmissing-include-dirs -pedantic" CACHE INTERNAL "General C Flags")
 
 
 #####################################

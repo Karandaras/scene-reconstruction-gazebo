@@ -220,9 +220,8 @@ void World::Save(const std::string &_filename)
   this->UpdateStateSDF();
   std::string data;
   data = "<?xml version ='1.0'?>\n";
-  data += "<gazebo version ='";
-  data += SDF_VERSION;
-  data += "'>\n";
+  data += "<gazebo version='" +
+          boost::lexical_cast<std::string>(SDF_VERSION) + "'>\n";
   data += this->sdf->ToString("");
   data += "</gazebo>\n";
 
@@ -318,18 +317,11 @@ void World::Step()
       // query timestep to allow dynamic time step size updates
       this->simTime += this->physicsEngine->GetStepTime();
       this->Update();
+
+      if (this->IsPaused() && this->stepInc > 0)
+        this->stepInc--;
     }
   }
-
-  // TODO: Fix timeout:  this belongs in simulator.cc
-  /*if (this->timeout > 0 && this->GetRealTime() > this->timeout)
-  {
-    this->stop = true;
-    break;
-  }*/
-
-  if (this->IsPaused() && this->stepInc > 0)
-    this->stepInc--;
 
   this->ProcessEntityMsgs();
   this->ProcessRequestMsgs();

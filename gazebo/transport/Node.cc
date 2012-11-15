@@ -28,19 +28,13 @@ Node::Node()
 {
   this->id = idCounter++;
   this->topicNamespace = "";
-  this->publisherMutex = new boost::recursive_mutex();
-  this->incomingMutex = new boost::recursive_mutex();
+  this->initialized = false;
 }
 
 /////////////////////////////////////////////////
 Node::~Node()
 {
   this->Fini();
-  delete this->publisherMutex;
-  this->publisherMutex = NULL;
-
-  delete this->incomingMutex;
-  this->incomingMutex = NULL;
 }
 
 /////////////////////////////////////////////////
@@ -48,18 +42,24 @@ void Node::Fini()
 {
   TopicManager::Instance()->RemoveNode(this->id);
 
-  this->publisherMutex->lock();
-  this->publishers.clear();
-  this->publisherMutex->unlock();
+  {
+    boost::recursive_mutex::scoped_lock lock(this->publisherMutex);
+    this->publishers.clear();
+  }
 
-  this->incomingMutex->lock();
-  this->callbacks.clear();
-  this->incomingMutex->unlock();
+  {
+    boost::recursive_mutex::scoped_lock lock(this->incomingMutex);
+    this->callbacks.clear();
+  }
 }
 
 /////////////////////////////////////////////////
 void Node::Init(const std::string &_space)
 {
+  // Cleanup first. This handles the case of calling Init twice on the same
+  // node.
+  this->Fini();
+
   this->topicNamespace = _space;
 
   if (_space.empty())
@@ -77,6 +77,8 @@ void Node::Init(const std::string &_space)
     TopicManager::Instance()->RegisterTopicNamespace(_space);
 
   TopicManager::Instance()->AddNode(shared_from_this());
+
+  this->initialized = true;
 }
 
 //////////////////////////////////////////////////
@@ -113,36 +115,31 @@ unsigned int Node::GetId() const
 /////////////////////////////////////////////////
 void Node::ProcessPublishers()
 {
-  this->publisherMutex->lock();
+  boost::recursive_mutex::scoped_lock lock(this->publisherMutex);
   for (this->publishersIter = this->publishers.begin();
        this->publishersIter != this->publishersEnd; this->publishersIter++)
   {
     (*this->publishersIter)->SendMessage();
   }
-  this->publisherMutex->unlock();
 }
 
 /////////////////////////////////////////////////
 bool Node::HandleData(const std::string &_topic, const std::string &_msg)
 {
-  this->incomingMutex->lock();
+  boost::recursive_mutex::scoped_lock lock(this->incomingMutex);
   this->incomingMsgs[_topic].push_back(_msg);
-  this->incomingMutex->unlock();
   return true;
 }
 
 /////////////////////////////////////////////////
 void Node::ProcessIncoming()
 {
-  // Hack...
-  if (!this->incomingMutex)
-    return;
+  boost::recursive_mutex::scoped_lock lock(this->incomingMutex);
 
   Callback_M::iterator cbIter;
   Callback_L::iterator liter;
   std::list<std::string>::iterator msgIter;
 
-  this->incomingMutex->lock();
   // For each topic
   std::map<std::string, std::list<std::string> >::iterator inIter;
   std::map<std::string, std::list<std::string> >::iterator endIter;
@@ -169,7 +166,6 @@ void Node::ProcessIncoming()
     }
   }
   this->incomingMsgs.clear();
-  this->incomingMutex->unlock();
 }
 
 //////////////////////////////////////////////////
