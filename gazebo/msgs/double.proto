@@ -7,7 +7,7 @@ package gazebo.msgs;
 
 message Double
 {
-  /// Integer data
+  /// Double data
   required double data = 1;
 }
 

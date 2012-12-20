@@ -10,36 +10,60 @@
 
 namespace gazebo
 {
+  /** @class RobotControllerPlugin "robotcontrollerplugin.h"
+   *  RobotController Plugin for Scene Reconstruction using the Gazebo simulator
+   *  @author Bastian Klingen
+   */
   class RobotControllerPlugin : public ModelPlugin
   {
     public: 
+      /** Constructor */
       RobotControllerPlugin();
 
     private:
+      /** struct for jointdata */
       struct JointData {
+          /** jointname inside the simulator */
           std::string simulator_name;
+          /** name of a second affected joint inside the simulator */
           std::string simulator_name2;
+          /** jointname inside the robot framework */
           std::string robot_name;
+          /** is this joint a gripper */
           bool gripper;
+          /** angle offset between simulator and robot */
           double offset;
+          /** angle offset between simulator and robot for the second joint*/
+          double offset2;
+          /** joint angle in simulator */
           double simulator_angle;
+          /** joint angle in robot framework */
           double robot_angle;
+          /** factor to adjust gear transmission ratios between simulator and robot */
           double factor;
       };
 
+      /** struct for buffered joint commands */
       struct JointCommand {
+          /** time when this command triggers */
           common::Time                 controltime;
+          /** new positions for the joints */
           std::map<std::string,double> positions;
 
+          /** comparison operator for find */
           bool operator<(JointCommand comp) const {
             return controltime<comp.controltime;
           }
       };
 
+      /** struct for buffered robot commands */
       struct RobotCommand {
+          /** time when this command triggers */
           common::Time                 controltime;
+          /** new positions for the robot */
           math::Pose                   pose;
 
+          /** comparison operator for find */
           bool operator<(RobotCommand comp) const {
             return controltime<comp.controltime;
           }
@@ -49,12 +73,13 @@ namespace gazebo
       transport::SubscriberPtr                    controlSub, 
                                                   srguiSub,
                                                   initSub,
+                                                  drawingSub,
                                                   positionSub,
-                                                  anglesSub,
-                                                  statusSub;
+                                                  anglesSub;
       transport::PublisherPtr                     srguiPub,
                                                   offsetPub,
                                                   bufferPub,
+                                                  drawingPub,
                                                   statusPub;
 
       common::Time                                next_joint_control,
@@ -80,13 +105,15 @@ namespace gazebo
 
       std::map<std::string,double>                currentjointpositions;
       math::Pose                                  currentpose;
-      bool                                        update_joint_buffer,
-                                                  update_position_buffer;
+      bool                                        __available;
 
     public: 
-      virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
+      /** initialisation of the plugin */
       virtual void Init();
+      /** reset of the plugin */
       virtual void Reset();
+      /** loading routine of the plugin */
+      virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
 
     private:
       void ProcessControlMsgs();
@@ -97,7 +124,7 @@ namespace gazebo
       void OnInitMsg(ConstSceneRobotControllerPtr &_msg);
       void InitMsg();
       void OnRequestMsg(ConstRequestPtr &_msg);
-      void OnStatusMsg(ConstRequestPtr &_msg);
+      void OnDrawingMsg(ConstDrawingPtr &_msg);
       void OnPositionMsg(ConstBufferPositionPtr &_msg);
       void OnAnglesMsg(ConstBufferJointsPtr &_msg);
       void fill_joint_buffer_msg(msgs::Message_V &_msg);

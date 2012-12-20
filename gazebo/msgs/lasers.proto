@@ -7,8 +7,9 @@ package gazebo.msgs;
 
 message Lasers
 {
-  repeated string interface = 1;
-  repeated bool visible     = 2;
+  optional bool update      = 1;
+  repeated string interface = 2;
+  repeated bool visible     = 3;
 }
 
 /// \endverbatim
