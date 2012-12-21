@@ -84,7 +84,6 @@ set (msgs
   scene_framework_control.proto
   scene_robot.proto
   transform_request.proto
-  scene_robotcontroller_data.proto
   buffer_joints.proto
   buffer_objects.proto
   buffer_position.proto

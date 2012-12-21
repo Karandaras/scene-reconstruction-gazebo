@@ -27,6 +27,8 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
 
   this->position_offset = math::Vector3(0.0, 0.0, 0.0);
 
+  __available = false;
+
   if(_sdf->HasElement("settings_position_x_offset")) {
     std::string tmp_x_offset;
     double x_offset;
@@ -91,11 +93,12 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
     while(jointElem) {
       std::string gname, gname2;
       std::string fname;
-      std::string offtmp;
+      std::string offtmp, offtmp2;
       std::string factmp;
       std::string grippertmp;
-      double off = 0.0;
-      double fac = 1.0;
+      double off  = 0.0;
+      double off2 = 0.0;
+      double fac  = 1.0;
       bool gripper = false;
 
       jointElem->GetValue()->Get(rcjoint);
@@ -175,6 +178,25 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
               gripper = false;
             }
           }
+          if(gripper) {
+            if(_sdf->HasElement("offset2_"+rcjoint)) {
+              if(!_sdf->GetElement("offset2_"+rcjoint)->GetValue()->Get(offtmp2)) {
+                gzwarn << "<offset2_" << rcjoint << "> not readable, defaulting to offset: " << off << "\n";
+                off2 = off;
+              }
+              else {
+                char* t;
+                off2 = strtod(offtmp2.c_str(), &t);
+                if(*t != 0) {
+                  gzwarn << "<offset2_" << rcjoint << "> not a double, defaulting to offset: " << off << "\n";
+                  off2 = off;
+                }  
+              }
+            }
+            else {
+              off2 = off;
+            }
+          }
 
           physics::JointPtr j = _model->GetJoint(gname);
           if(!j) {
@@ -182,21 +204,25 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
           } else {
             double simangle = j->GetAngle(0).Radian();
 
-            this->jointdata[fname].simulator_name = gname;
+            this->jointdata[fname].simulator_name = j->GetScopedName();
             this->jointdata[fname].robot_name = fname;
             this->jointdata[fname].offset = off;
+            this->jointdata[fname].offset2 = off2;
             this->jointdata[fname].factor = fac;
             this->jointdata[fname].simulator_angle = simangle;
             this->jointdata[fname].robot_angle = simangle-off;
             this->jointdata[fname].gripper = gripper;
             this->jointdata[fname].simulator_name2 = "";
+            this->jointdata[fname].simulator_angle2 = simangle;
             if(gripper) {
               physics::JointPtr j2 = _model->GetJoint(gname2);
               if(!j2) {
                 gzerr << "unable to find joint " << gname2 << ", setting gripper to false\n";
                 this->jointdata[fname].gripper = false;                
               } else {
-                this->jointdata[fname].simulator_name2 = gname2;
+                this->jointdata[fname].simulator_name2 = j2->GetScopedName();
+                double simangle2 = j2->GetAngle(0).Radian();
+                this->jointdata[fname].simulator_angle2 = simangle2;
               }
             }
           }
@@ -212,23 +238,18 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->offsetPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
   this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
+  this->drawingPub = this->node->Advertise<msgs::Drawing>("~/draw");
 
   // connect update to worldupdate
   this->connections.push_back(event::Events::ConnectWorldUpdateEnd(
           boost::bind(&RobotControllerPlugin::OnUpdate, this)));
 
-  msgs::Response response;
-  response.set_id(-1);
-  response.set_request("status");
-  response.set_response("RobotController");
-  this->statusPub->Publish(response);
-
   this->controlSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/"), &RobotControllerPlugin::OnControlMsg, this);
   this->initSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Init"), &RobotControllerPlugin::OnInitMsg, this);
   this->srguiSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Request"), &RobotControllerPlugin::OnRequestMsg, this);
-  this->statusSub = this->node->Subscribe(std::string("~/SceneReconstruction/GUI/Availability/Request/RobotController"), &RobotControllerPlugin::OnStatusMsg, this);
   this->positionSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/BufferPosition"), &RobotControllerPlugin::OnPositionMsg, this);
   this->anglesSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/BufferJoints"), &RobotControllerPlugin::OnAnglesMsg, this);
+  this->drawingSub = this->node->Subscribe(std::string("~/SceneReconstruction/RobotController/Draw"), &RobotControllerPlugin::OnDrawingMsg, this);
 }
 
 /////////////////////////////////////////////////
@@ -236,16 +257,13 @@ void RobotControllerPlugin::Init()
 {
   this->next_joint_control = common::Time(world->GetSimTime());
   this->next_robot_control = common::Time(world->GetSimTime());
-  update_position_buffer = false;
-  update_joint_buffer = false;
 }
 
 void RobotControllerPlugin::Reset()
 {
-  update_position_buffer = false;
-  update_joint_buffer = false;
-  this->next_joint_control = common::Time(world->GetSimTime());
-  this->next_robot_control = common::Time(world->GetSimTime());
+  this->next_joint_control.Set(0.0);
+  this->next_robot_control.Set(0.0);
+  this->lastinfo.Set(0.0);
   jointControlList.clear();
   robotControlList.clear();
   controlMsgs.clear();
@@ -256,6 +274,30 @@ void RobotControllerPlugin::Reset()
 /////////////////////////////////////////////////
 void RobotControllerPlugin::OnUpdate()
 {
+  if(!__available) {
+    msgs::Response response;
+    response.set_id(-1);
+    response.set_request("status");
+    response.set_response("RobotController");
+    this->statusPub->Publish(response);
+
+    msgs::Response data;
+    msgs::Vector3d offset;
+    data.set_id(-1);
+    data.set_request("get_data");
+    data.set_response(this->model->GetName());
+    data.set_type(offset.GetTypeName());
+
+    offset.set_x(this->position_offset.x);
+    offset.set_y(this->position_offset.y);
+    offset.set_z(this->position_offset.z);
+
+    std::string *serializedData = data.mutable_serialized_data();
+    offset.SerializeToString(serializedData);
+
+    this->offsetPub->Publish(data);
+  }
+
   if(this->world->IsPaused())
     return;
 
@@ -287,32 +329,31 @@ void RobotControllerPlugin::OnUpdate()
     this->srguiPub->Publish(src);
   }
 
+  unsigned int jcl = jointControlList.size();
+  unsigned int rcl = robotControlList.size();
+
   this->ProcessControlMsgs();
   this->ControlRobot(now);
   this->ControlJoints(now);
 
-  this->model->SetJointPositions(currentjointpositions);
-  this->model->SetRelativePose(currentpose);
-
-  if(update_joint_buffer) {
-    update_joint_buffer = false;
+  if(jcl != jointControlList.size()) {
     msgs::Message_V jointbuffer;
     fill_joint_buffer_msg(jointbuffer);
     bufferPub->Publish(jointbuffer);
   }
-
-  if(update_position_buffer) {
-    update_position_buffer = false;
+  if(rcl != robotControlList.size()) {
     msgs::Message_V positionbuffer;
     fill_position_buffer_msg(positionbuffer);
     bufferPub->Publish(positionbuffer);
   }
+
+  this->model->SetJointPositions(currentjointpositions);
+  this->model->SetRelativePose(currentpose);
 }
 
 void RobotControllerPlugin::ControlJoints(common::Time now) {
   boost::mutex::scoped_lock lock(*this->jointMutex);
   if(now >= this->next_joint_control) {
-    update_joint_buffer = true;
     // process JointCommand list
     this->next_joint_control = now + common::Time(1);
     std::list< JointCommand >::iterator it;
@@ -326,6 +367,8 @@ void RobotControllerPlugin::ControlJoints(common::Time now) {
           if(this->jointiter != this->jointdata.end()) {
             this->jointiter->second.robot_angle = pos->second;
             this->jointiter->second.simulator_angle = pos->second * this->jointiter->second.factor + this->jointiter->second.offset;
+            if(this->jointiter->second.gripper)
+              this->jointiter->second.simulator_angle2 = -(pos->second * this->jointiter->second.factor + this->jointiter->second.offset2);
           }
         }
       }
@@ -342,8 +385,9 @@ void RobotControllerPlugin::ControlJoints(common::Time now) {
     // set current position for all joints
     for(this->jointiter = jointdata.begin(); this->jointiter != jointdata.end(); this->jointiter++) {
       currentjointpositions[this->jointiter->second.simulator_name] = this->jointiter->second.simulator_angle;
-      if(this->jointiter->second.gripper)
-        currentjointpositions[this->jointiter->second.simulator_name2] = this->jointiter->second.simulator_angle;
+      if(this->jointiter->second.gripper) {
+        currentjointpositions[this->jointiter->second.simulator_name2] = this->jointiter->second.simulator_angle2;
+      }
     }
   }
 }
@@ -351,7 +395,6 @@ void RobotControllerPlugin::ControlJoints(common::Time now) {
 void RobotControllerPlugin::ControlRobot(common::Time now) {
   boost::mutex::scoped_lock lock(*this->robotMutex);
   if(now >= this->next_robot_control) {
-    update_position_buffer = true;
     this->next_robot_control = now + common::Time(1);
     std::list< RobotCommand >::iterator it;
     std::list< RobotCommand > newRobotList;
@@ -377,8 +420,7 @@ void RobotControllerPlugin::ProcessControlMsgs() {
   boost::mutex::scoped_lock lockr(*this->robotMutex);
   boost::mutex::scoped_lock lockj(*this->jointMutex);
   std::list<msgs::Message_V>::iterator _msg;
-  unsigned int jcl = jointControlList.size();
-  unsigned int rcl = robotControlList.size();
+
   for (_msg = this->controlMsgs.begin(); _msg != this->controlMsgs.end(); ++_msg) {
     msgs::SceneJoint joint;
     msgs::SceneRobot robot;
@@ -458,18 +500,15 @@ void RobotControllerPlugin::ProcessControlMsgs() {
     }
   }
 
-  if(jcl != jointControlList.size())
-    update_joint_buffer = true;
-  if(rcl != robotControlList.size())
-    update_position_buffer = true;
-
   jointControlList.sort();
   robotControlList.sort();
+
   controlMsgs.clear();
 }
 
 /////////////////////////////////////////////////
 void RobotControllerPlugin::OnInitMsg(ConstSceneRobotControllerPtr &_msg) {
+  // TODO: reimplement with queue
   initMsg = _msg;
   InitMsg();
 }
@@ -487,10 +526,12 @@ void RobotControllerPlugin::InitMsg() {
       if(jointiter != jointdata.end()) {
         currentjointpositions[jointiter->second.simulator_name] = initMsg->robot_angle(i)*this->jointiter->second.factor + jointiter->second.offset;
         if(jointiter->second.gripper) {
-          currentjointpositions[jointiter->second.simulator_name2] = initMsg->robot_angle(i)*this->jointiter->second.factor + jointiter->second.offset;
+          currentjointpositions[jointiter->second.simulator_name2] = -(initMsg->robot_angle(i)*this->jointiter->second.factor + jointiter->second.offset2);
         }
         jointiter->second.robot_angle = initMsg->robot_angle(i);
         jointiter->second.simulator_angle = initMsg->robot_angle(i)*this->jointiter->second.factor + jointiter->second.offset;
+        if(jointiter->second.gripper)
+          jointiter->second.simulator_angle = -(initMsg->robot_angle(i)*this->jointiter->second.factor + jointiter->second.offset2);
 
       }
     }
@@ -544,10 +585,14 @@ void RobotControllerPlugin::OnControlMsg(ConstMessage_VPtr &_msg) {
 }
 
 void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
+  // TODO: reimplement with queue
   msgs::Response response;
   response.set_id(_msg->id());
   response.set_request(_msg->request());
-  if(_msg->request() == "get_data") {
+  if(_msg->request() == "available") {
+    __available = true;
+  }
+  else if(_msg->request() == "get_data") {
     msgs::Vector3d offset;
     response.set_id(_msg->id());
     response.set_request(_msg->request());
@@ -563,15 +608,15 @@ void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 
     this->offsetPub->Publish(response);
   }
-}
-
-void RobotControllerPlugin::OnStatusMsg(ConstRequestPtr &_msg) {
-  if(_msg->request() == "status") {
-    msgs::Response response;
-    response.set_id(_msg->id());
-    response.set_request(_msg->request());
-    response.set_response("RobotController");
-    this->statusPub->Publish(response);
+  else if(_msg->request() == "update_joint_buffer") {
+    msgs::Message_V jointbuffer;
+    fill_joint_buffer_msg(jointbuffer);
+    bufferPub->Publish(jointbuffer);
+  }
+  else if(_msg->request() == "update_position_buffer") {
+    msgs::Message_V positionbuffer;
+    fill_position_buffer_msg(positionbuffer);
+    bufferPub->Publish(positionbuffer);
   }
 }
 
@@ -589,7 +634,10 @@ void RobotControllerPlugin::fill_joint_buffer_msg(msgs::Message_V &_msg) {
       time = it->controltime;
       jnt.clear_name();
       jnt.clear_angle();
-      jnt.set_timestamp(time.Double());
+      double timestamp;
+      timestamp  = time.sec*1000.0;
+      timestamp += time.nsec/1000000.0;
+      jnt.set_timestamp(timestamp);
     }
 
     std::map<std::string, double>::iterator joint;
@@ -598,6 +646,11 @@ void RobotControllerPlugin::fill_joint_buffer_msg(msgs::Message_V &_msg) {
       jnt.add_angle(joint->second);
     }
   }
+
+  if(time != 0.0) {
+    std::string *msg = _msg.add_msgsdata();
+    jnt.SerializeToString(msg);
+  }
 }
 
 void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
@@ -605,7 +658,10 @@ void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
   msgs::BufferPosition pos;
   _msg.set_msgtype(pos.GetTypeName());
   for(it = robotControlList.begin(); it != robotControlList.end(); it++) {
-    pos.set_timestamp(it->controltime.Double());
+    double timestamp;
+    timestamp  = it->controltime.sec*1000.0;
+    timestamp += it->controltime.nsec/1000000.0;
+    pos.set_timestamp(timestamp);
     msgs::Pose *pose = pos.mutable_position();
     msgs::Set(pose, it->pose);
 
@@ -615,6 +671,7 @@ void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
 }
 
 void RobotControllerPlugin::OnPositionMsg(ConstBufferPositionPtr &_msg) {
+  // TODO: reimplement with queue
   if(_msg->timestamp() < 0.0)
     this->model->SetRelativePose(currentpose);
   else
@@ -622,6 +679,7 @@ void RobotControllerPlugin::OnPositionMsg(ConstBufferPositionPtr &_msg) {
 }
 
 void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
+  // TODO: reimplement with queue
   if(_msg->timestamp() < 0.0)
     this->model->SetJointPositions(currentjointpositions);
   else {
@@ -636,7 +694,7 @@ void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
         if(jointiter != jointdata.end()) {
           bufferpositions[jointiter->second.simulator_name] = _msg->angle(i)*this->jointiter->second.factor + jointiter->second.offset;
           if(jointiter->second.gripper) {
-            bufferpositions[jointiter->second.simulator_name2] = _msg->angle(i)*this->jointiter->second.factor + jointiter->second.offset;
+            bufferpositions[jointiter->second.simulator_name2] = -(_msg->angle(i)*this->jointiter->second.factor + jointiter->second.offset2);
           }
         }
       }
@@ -648,3 +706,13 @@ void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
   }
 }
 
+void RobotControllerPlugin::OnDrawingMsg(ConstDrawingPtr &_msg) {
+  msgs::Drawing drw;
+  drw.CopyFrom(*_msg);
+
+  math::Pose mp = this->model->GetWorldPose();
+  msgs::Pose *dp = drw.mutable_pose();
+  *dp = msgs::Convert(mp);
+
+  drawingPub->Publish(drw);
+}

@@ -11,9 +11,8 @@ message SceneObject
 {
   required string object  = 1;
   required bool   visible = 2;
-  optional string model   = 3;
-  required Pose   pose    = 4;
-  optional double time    = 5;
-  optional string query   = 6;
+  required Pose   pose    = 3;
+  optional double time    = 4;
+  optional string query   = 5;
 }
 
