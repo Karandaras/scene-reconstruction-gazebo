@@ -508,7 +508,6 @@ void RobotControllerPlugin::ProcessControlMsgs() {
 
 /////////////////////////////////////////////////
 void RobotControllerPlugin::OnInitMsg(ConstSceneRobotControllerPtr &_msg) {
-  // TODO: reimplement with queue
   initMsg = _msg;
   InitMsg();
 }
@@ -585,7 +584,6 @@ void RobotControllerPlugin::OnControlMsg(ConstMessage_VPtr &_msg) {
 }
 
 void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
-  // TODO: reimplement with queue
   msgs::Response response;
   response.set_id(_msg->id());
   response.set_request(_msg->request());
@@ -671,7 +669,6 @@ void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
 }
 
 void RobotControllerPlugin::OnPositionMsg(ConstBufferPositionPtr &_msg) {
-  // TODO: reimplement with queue
   if(_msg->timestamp() < 0.0)
     this->model->SetRelativePose(currentpose);
   else
@@ -679,7 +676,6 @@ void RobotControllerPlugin::OnPositionMsg(ConstBufferPositionPtr &_msg) {
 }
 
 void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
-  // TODO: reimplement with queue
   if(_msg->timestamp() < 0.0)
     this->model->SetJointPositions(currentjointpositions);
   else {

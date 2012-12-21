@@ -40,6 +40,10 @@ rcjoint Element (required)(1..n)
     (replace * by the string encapsulated by rcjoint)
     Offset between Model and data  for the second joint
 
+  offset2_* Element (optional, defaults to offset_*) (double)
+    (replace * by the string encapsulated by rcjoint)
+    Offset between Model and data  for the second joint
+
 Example
 <plugin name="RobotControllerPlugin" filename="libRobotControllerPlugin.so">
   <rcjoint>1</rcjoint>
