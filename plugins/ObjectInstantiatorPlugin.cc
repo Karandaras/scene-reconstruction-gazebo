@@ -401,6 +401,8 @@ void ObjectInstantiatorPlugin::OnBufferObjectMsg(ConstBufferObjectsPtr &_msg) {
         drw.mutable_pose()->CopyFrom(_msg->object(i).pose());
         drw.set_material("Gazebo/BlueGlow");
         drw.set_mode(msgs::Drawing::LINE_LIST);
+
+        // add points for all 12 lines of the bounding box
         msgs::Drawing::Point *p11 = drw.add_point();
         msgs::Drawing::Point *p12 = drw.add_point();
         msgs::Drawing::Point *p21 = drw.add_point();
@@ -425,6 +427,8 @@ void ObjectInstantiatorPlugin::OnBufferObjectMsg(ConstBufferObjectsPtr &_msg) {
         msgs::Drawing::Point *pB2 = drw.add_point();
         msgs::Drawing::Point *pC1 = drw.add_point();
         msgs::Drawing::Point *pC2 = drw.add_point();
+
+        // set the respective coordinates for the points
         math::Box bb = mdl->GetBoundingBox();
         p11->mutable_position()->set_x(bb.max.x);
         p11->mutable_position()->set_y(bb.max.y);
@@ -516,31 +520,6 @@ void ObjectInstantiatorPlugin::OnBufferObjectMsg(ConstBufferObjectsPtr &_msg) {
       drawingPub->Publish(drw);
     }
   }
-
-  /*
-  if(_msg->timestamp() < 0.0) {
-    std::map<std::string, SceneObject>::iterator iter;
-    for(iter = object_list.begin(); iter != object_list.end(); iter++) {
-      physics::ModelPtr mdl = world->GetModel(iter->first+"_clone");
-      if(mdl) {
-        mdl->SetWorldPose(out_of_sight);
-      }
-    }
-  }
-  else {
-    int o = _msg->object_size();
-    for(int i=0; i<o; i++) {
-      physics::ModelPtr mdl = world->GetModel(_msg->object(i).object()+"_clone");
-      if(mdl) {
-        // Move mdl
-        if(_msg->object(i).visible())
-          mdl->SetWorldPose(msgs::Convert(_msg->object(i).pose()));
-        else
-          mdl->SetWorldPose(out_of_sight);
-      }
-    }
-  }
-  */
 }
 
 void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {

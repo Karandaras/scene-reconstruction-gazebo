@@ -107,7 +107,9 @@ namespace gazebo
 
       std::map<std::string,double>                currentjointpositions;
       math::Pose                                  currentpose;
-      bool                                        __available;
+      bool                                        __available,
+                                                  bufferpreview_joint,
+                                                  bufferpreview_pose;
 
     public: 
       /** initialisation of the plugin */

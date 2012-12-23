@@ -347,8 +347,10 @@ void RobotControllerPlugin::OnUpdate()
     bufferPub->Publish(positionbuffer);
   }
 
-  this->model->SetJointPositions(currentjointpositions);
-  this->model->SetRelativePose(currentpose);
+  if(!this->bufferpreview_joint)
+    this->model->SetJointPositions(currentjointpositions);
+  if(!this->bufferpreview_pose)
+    this->model->SetRelativePose(currentpose);
 }
 
 void RobotControllerPlugin::ControlJoints(common::Time now) {
@@ -669,15 +671,21 @@ void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
 }
 
 void RobotControllerPlugin::OnPositionMsg(ConstBufferPositionPtr &_msg) {
-  if(_msg->timestamp() < 0.0)
+  if(_msg->timestamp() < 0.0) {
+    this->bufferpreview_pose = false;
     this->model->SetRelativePose(currentpose);
-  else
+  }
+  else {
+    this->bufferpreview_pose = true;
     this->model->SetRelativePose(msgs::Convert(_msg->position()));
+  }
 }
 
 void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
-  if(_msg->timestamp() < 0.0)
+  if(_msg->timestamp() < 0.0) {
+    this->bufferpreview_joint = false;
     this->model->SetJointPositions(currentjointpositions);
+  }
   else {
     int n, a;
     n = _msg->name_size();
@@ -697,6 +705,7 @@ void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
 
       jointiter = jointdata.end();
    
+      this->bufferpreview_joint = true;
       this->model->SetJointPositions(bufferpositions);
     }
   }
