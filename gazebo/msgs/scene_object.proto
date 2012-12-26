@@ -14,5 +14,6 @@ message SceneObject
   required Pose   pose    = 3;
   optional double time    = 4;
   optional string query   = 5;
+  optional string frame   = 6;
 }
 

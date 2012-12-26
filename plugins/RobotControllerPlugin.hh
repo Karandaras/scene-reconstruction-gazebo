@@ -80,7 +80,7 @@ namespace gazebo
                                                   anglesSub;
       transport::PublisherPtr                     srguiPub,
                                                   offsetPub,
-                                                  bufferPub,
+//s                                                  bufferPub,
                                                   drawingPub,
                                                   statusPub;
 
@@ -108,6 +108,7 @@ namespace gazebo
       std::map<std::string,double>                currentjointpositions;
       math::Pose                                  currentpose;
       bool                                        __available,
+                                                  __reset,
                                                   bufferpreview_joint,
                                                   bufferpreview_pose;
 
@@ -120,19 +121,55 @@ namespace gazebo
       virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf);
 
     private:
+      /** Processes the message queue and builds the buffer
+        */
       void ProcessControlMsgs();
+      /** Updates the current joint angles using the buffer
+        * @param now The current time for reference with the buffer timestamps
+        */
       void ControlJoints(common::Time now);
+      /** Updates the current robot position using the buffer
+        * @param now The current time for reference with the buffer timestamps
+        */
       void ControlRobot(common::Time now);
+      /** Update procedure connected to Gazebo's update
+        */
       void OnUpdate();
+      /** Callback for received Message_V messages to enqueue them for buffering
+        * @param _msg Message_V message containing data for buffering
+        */
       void OnControlMsg(ConstMessage_VPtr &_msg);
+      /** Callback for received SceneRobotController message to set initial position and angles
+        * @param _msg SceneRobotController message containing data
+        */
       void OnInitMsg(ConstSceneRobotControllerPtr &_msg);
+      /** Procedure to set the robot to initial values, called on startup and after reset
+        */
       void InitMsg();
+      /** Callback for received Request messages
+        * @param _msg Request message
+        */
       void OnRequestMsg(ConstRequestPtr &_msg);
+      /** Callback for received Drawing messages to position them relative to the robot
+        * @param _msg Drawing message
+        */
       void OnDrawingMsg(ConstDrawingPtr &_msg);
-      void OnPositionMsg(ConstBufferPositionPtr &_msg);
-      void OnAnglesMsg(ConstBufferJointsPtr &_msg);
-      void fill_joint_buffer_msg(msgs::Message_V &_msg);
-      void fill_position_buffer_msg(msgs::Message_V &_msg);
+      /** Callback for received SceneRobot messages to visualize buffer content
+        * @param _msg SceneRobot message containing needed data for visualization
+        */
+      void OnPositionMsg(ConstSceneRobotPtr &_msg);
+      /** Callback for received SceneJoint messages to visualize buffer content
+        * @param _msg SceneJoint message containing needed data for visualization
+        */
+      void OnAnglesMsg(ConstSceneJointPtr &_msg);
+      /** Fills a message with the current joint buffer content
+        * @param _msg Message that gets filled
+        */
+//      void fill_joint_buffer_msg(msgs::Message_V &_msg);
+      /** Fills a message with the current position buffer content
+        * @param _msg Message that gets filled
+        */
+//      void fill_position_buffer_msg(msgs::Message_V &_msg);
   };
 }
 #endif

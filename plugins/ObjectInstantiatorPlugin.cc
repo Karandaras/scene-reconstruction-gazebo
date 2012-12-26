@@ -23,7 +23,6 @@ void ObjectInstantiatorPlugin::Reset() {
   this->next_buffer = common::Time(world->GetSimTime());
   this->objectMsgs.clear();
   this->object_buffer.clear();
-  this->object_count = 0;
 
   std::map<std::string, SceneObject>::iterator iter;
   for(iter = object_list.begin(); iter != object_list.end(); iter++) {
@@ -38,7 +37,6 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
 {
   this->world = _world;
   this->receiveMutex = new boost::mutex();
-  this->object_count = 0;
 
   this->node = transport::NodePtr(new transport::Node());
   this->node->Init(_world->GetName());
@@ -150,16 +148,15 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
   this->requestPub = this->node->Advertise<msgs::Request>(std::string("~/request"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
-  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
+//  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
   this->drawingPub = this->node->Advertise<msgs::Drawing>(std::string("~/draw"));
 
   this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
-  this->bufferSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/BufferObject"), &ObjectInstantiatorPlugin::OnBufferObjectMsg, this);
+  this->bufferSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/BufferObject"), &ObjectInstantiatorPlugin::OnObjectMsg, this);
   this->requestSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Request"), &ObjectInstantiatorPlugin::OnRequestMsg, this);
 }
 
 void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
-  // TODO: reimplement with queue
   msgs::Response response;
   response.set_id(_msg->id());
   response.set_request(_msg->request());
@@ -222,11 +219,11 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
     }
     this->objectPub->Publish(response);
   }
-  else if(_msg->request() == "update_object_buffer") {
-    msgs::Message_V buffer;
-    fill_buffer_msg(buffer);
-    bufferPub->Publish(buffer);
-  }
+//  else if(_msg->request() == "update_object_buffer") {
+//    msgs::Message_V buffer;
+//    fill_buffer_msg(buffer);
+//    bufferPub->Publish(buffer);
+//  }
   else {
     response.set_response("unknown");
     msgs::GzString src;
@@ -252,16 +249,16 @@ void ObjectInstantiatorPlugin::OnUpdate() {
     return;
 
   common::Time now = common::Time(world->GetSimTime());
-  unsigned int obs = this->object_buffer.size();
+//  unsigned int obs = this->object_buffer.size();
 
   this->ProcessSceneObjectMsgs();
   this->UpdateObjects(now);
 
-  if(this->object_buffer.size() != obs) {
-    msgs::Message_V buffer;
-    fill_buffer_msg(buffer);
-    bufferPub->Publish(buffer);
-  }
+//  if(this->object_buffer.size() != obs) {
+//    msgs::Message_V buffer;
+//    fill_buffer_msg(buffer);
+//    bufferPub->Publish(buffer);
+//  }
 }
 
 void ObjectInstantiatorPlugin::UpdateObjects(common::Time now) {
@@ -341,6 +338,7 @@ void ObjectInstantiatorPlugin::fill_list_msg(msgs::GzString_V &_msg) {
   }
 }
 
+/*
 void ObjectInstantiatorPlugin::fill_buffer_msg(msgs::Message_V &_msg) {
   std::list<SceneObject>::iterator it;
   common::Time time(0.0);
@@ -373,14 +371,16 @@ void ObjectInstantiatorPlugin::fill_buffer_msg(msgs::Message_V &_msg) {
     obj.SerializeToString(msg);
   }
 }
+*/
 
-void ObjectInstantiatorPlugin::OnSceneObjectMsg(ConstSceneObject_VPtr &_msg) {
+void ObjectInstantiatorPlugin::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
   this->objectMsgs.push_back(*_msg);
 }
 
-void ObjectInstantiatorPlugin::OnBufferObjectMsg(ConstBufferObjectsPtr &_msg) {
-  if(_msg->timestamp() < 0.0) {
+void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
+  if(_msg->time() < 0.0) {
+    gzmsg << "clearing buffer preview\n";
     std::map<std::string, SceneObject>::iterator iter;
     for(iter = object_list.begin(); iter != object_list.end(); iter++) {
       msgs::Drawing drw;
@@ -391,160 +391,175 @@ void ObjectInstantiatorPlugin::OnBufferObjectMsg(ConstBufferObjectsPtr &_msg) {
   }
   else {
     // create bounding box drawings
-    int os = _msg->object_size();
-    for(int i=0; i<os; i++) {
-      msgs::Drawing drw;
-      drw.set_name(_msg->object(i).object());
-      physics::ModelPtr mdl = world->GetModel(_msg->object(i).object());
-      if(_msg->object(i).visible() && mdl) {
-        drw.set_visible(true);
-        drw.mutable_pose()->CopyFrom(_msg->object(i).pose());
-        drw.set_material("Gazebo/BlueGlow");
-        drw.set_mode(msgs::Drawing::LINE_LIST);
-
-        // add points for all 12 lines of the bounding box
-        msgs::Drawing::Point *p11 = drw.add_point();
-        msgs::Drawing::Point *p12 = drw.add_point();
-        msgs::Drawing::Point *p21 = drw.add_point();
-        msgs::Drawing::Point *p22 = drw.add_point();
-        msgs::Drawing::Point *p31 = drw.add_point();
-        msgs::Drawing::Point *p32 = drw.add_point();
-        msgs::Drawing::Point *p41 = drw.add_point();
-        msgs::Drawing::Point *p42 = drw.add_point();
-        msgs::Drawing::Point *p51 = drw.add_point();
-        msgs::Drawing::Point *p52 = drw.add_point();
-        msgs::Drawing::Point *p61 = drw.add_point();
-        msgs::Drawing::Point *p62 = drw.add_point();
-        msgs::Drawing::Point *p71 = drw.add_point();
-        msgs::Drawing::Point *p72 = drw.add_point();
-        msgs::Drawing::Point *p81 = drw.add_point();
-        msgs::Drawing::Point *p82 = drw.add_point();
-        msgs::Drawing::Point *p91 = drw.add_point();
-        msgs::Drawing::Point *p92 = drw.add_point();
-        msgs::Drawing::Point *pA1 = drw.add_point();
-        msgs::Drawing::Point *pA2 = drw.add_point();
-        msgs::Drawing::Point *pB1 = drw.add_point();
-        msgs::Drawing::Point *pB2 = drw.add_point();
-        msgs::Drawing::Point *pC1 = drw.add_point();
-        msgs::Drawing::Point *pC2 = drw.add_point();
-
-        // set the respective coordinates for the points
-        math::Box bb = mdl->GetBoundingBox();
-        p11->mutable_position()->set_x(bb.max.x);
-        p11->mutable_position()->set_y(bb.max.y);
-        p11->mutable_position()->set_z(bb.max.z);
-        p12->mutable_position()->set_x(bb.max.x);
-        p12->mutable_position()->set_y(bb.min.y);
-        p12->mutable_position()->set_z(bb.max.z);
-
-        p21->mutable_position()->set_x(bb.max.x);
-        p21->mutable_position()->set_y(bb.max.y);
-        p21->mutable_position()->set_z(bb.max.z);
-        p22->mutable_position()->set_x(bb.min.x);
-        p22->mutable_position()->set_y(bb.max.y);
-        p22->mutable_position()->set_z(bb.max.z);
-
-        p31->mutable_position()->set_x(bb.max.x);
-        p31->mutable_position()->set_y(bb.min.y);
-        p31->mutable_position()->set_z(bb.max.z);
-        p32->mutable_position()->set_x(bb.min.x);
-        p32->mutable_position()->set_y(bb.min.y);
-        p32->mutable_position()->set_z(bb.max.z);
-
-        p41->mutable_position()->set_x(bb.min.x);
-        p41->mutable_position()->set_y(bb.max.y);
-        p41->mutable_position()->set_z(bb.max.z);
-        p42->mutable_position()->set_x(bb.min.x);
-        p42->mutable_position()->set_y(bb.min.y);
-        p42->mutable_position()->set_z(bb.max.z);
-
-        p51->mutable_position()->set_x(bb.max.x);
-        p51->mutable_position()->set_y(bb.max.y);
-        p51->mutable_position()->set_z(bb.min.z);
-        p52->mutable_position()->set_x(bb.max.x);
-        p52->mutable_position()->set_y(bb.min.y);
-        p52->mutable_position()->set_z(bb.min.z);
-
-        p61->mutable_position()->set_x(bb.max.x);
-        p61->mutable_position()->set_y(bb.max.y);
-        p61->mutable_position()->set_z(bb.min.z);
-        p62->mutable_position()->set_x(bb.min.x);
-        p62->mutable_position()->set_y(bb.max.y);
-        p62->mutable_position()->set_z(bb.min.z);
-
-        p71->mutable_position()->set_x(bb.max.x);
-        p71->mutable_position()->set_y(bb.min.y);
-        p71->mutable_position()->set_z(bb.min.z);
-        p72->mutable_position()->set_x(bb.min.x);
-        p72->mutable_position()->set_y(bb.min.y);
-        p72->mutable_position()->set_z(bb.min.z);
-
-        p81->mutable_position()->set_x(bb.min.x);
-        p81->mutable_position()->set_y(bb.max.y);
-        p81->mutable_position()->set_z(bb.min.z);
-        p82->mutable_position()->set_x(bb.min.x);
-        p82->mutable_position()->set_y(bb.min.y);
-        p82->mutable_position()->set_z(bb.min.z);
-
-        p91->mutable_position()->set_x(bb.max.x);
-        p91->mutable_position()->set_y(bb.max.y);
-        p91->mutable_position()->set_z(bb.max.z);
-        p92->mutable_position()->set_x(bb.max.x);
-        p92->mutable_position()->set_y(bb.max.y);
-        p92->mutable_position()->set_z(bb.min.z);
-
-        pA1->mutable_position()->set_x(bb.min.x);
-        pA1->mutable_position()->set_y(bb.max.y);
-        pA1->mutable_position()->set_z(bb.max.z);
-        pA2->mutable_position()->set_x(bb.min.x);
-        pA2->mutable_position()->set_y(bb.max.y);
-        pA2->mutable_position()->set_z(bb.min.z);
-
-        pB1->mutable_position()->set_x(bb.max.x);
-        pB1->mutable_position()->set_y(bb.min.y);
-        pB1->mutable_position()->set_z(bb.max.z);
-        pB2->mutable_position()->set_x(bb.max.x);
-        pB2->mutable_position()->set_y(bb.min.y);
-        pB2->mutable_position()->set_z(bb.min.z);
-
-        pC1->mutable_position()->set_x(bb.min.x);
-        pC1->mutable_position()->set_y(bb.min.y);
-        pC1->mutable_position()->set_z(bb.max.z);
-        pC2->mutable_position()->set_x(bb.min.x);
-        pC2->mutable_position()->set_y(bb.min.y);
-        pC2->mutable_position()->set_z(bb.min.z);
-      }
-      else
-        drw.set_visible(false);
-
-      drawingPub->Publish(drw);
+    gzmsg << "creating buffer preview for object " << _msg->object() << "\n";
+    msgs::Drawing drw;
+    drw.set_name(_msg->object());
+    physics::ModelPtr mdl;
+    std::map<std::string, SceneObject>::iterator it =  object_list.find(_msg->object());
+    if(it != object_list.end()) {
+      mdl = it->second.model;
+      gzmsg << "found model for object " << _msg->object() << "\n";
     }
+
+    if(_msg->visible() && mdl) {
+      drw.set_visible(true);
+      math::Pose p = msgs::Convert(_msg->pose());
+      p.pos += position_offset;
+      drw.mutable_pose()->CopyFrom(msgs::Convert(p));
+      drw.set_material("SceneReconstruction/Object");
+      drw.set_mode(msgs::Drawing::LINE_LIST);
+
+      gzmsg << "setting points for object " << _msg->object() << "\n";
+      // add points for all 12 lines of the bounding box
+      msgs::Drawing::Point *p11 = drw.add_point();
+      msgs::Drawing::Point *p12 = drw.add_point();
+      msgs::Drawing::Point *p21 = drw.add_point();
+      msgs::Drawing::Point *p22 = drw.add_point();
+      msgs::Drawing::Point *p31 = drw.add_point();
+      msgs::Drawing::Point *p32 = drw.add_point();
+      msgs::Drawing::Point *p41 = drw.add_point();
+      msgs::Drawing::Point *p42 = drw.add_point();
+      msgs::Drawing::Point *p51 = drw.add_point();
+      msgs::Drawing::Point *p52 = drw.add_point();
+      msgs::Drawing::Point *p61 = drw.add_point();
+      msgs::Drawing::Point *p62 = drw.add_point();
+      msgs::Drawing::Point *p71 = drw.add_point();
+      msgs::Drawing::Point *p72 = drw.add_point();
+      msgs::Drawing::Point *p81 = drw.add_point();
+      msgs::Drawing::Point *p82 = drw.add_point();
+      msgs::Drawing::Point *p91 = drw.add_point();
+      msgs::Drawing::Point *p92 = drw.add_point();
+      msgs::Drawing::Point *pA1 = drw.add_point();
+      msgs::Drawing::Point *pA2 = drw.add_point();
+      msgs::Drawing::Point *pB1 = drw.add_point();
+      msgs::Drawing::Point *pB2 = drw.add_point();
+      msgs::Drawing::Point *pC1 = drw.add_point();
+      msgs::Drawing::Point *pC2 = drw.add_point();
+
+      // set the respective coordinates for the points
+      math::Box bb = mdl->GetBoundingBox();
+      p11->mutable_position()->set_x(bb.max.x);
+      p11->mutable_position()->set_y(bb.max.y);
+      p11->mutable_position()->set_z(bb.max.z);
+      p12->mutable_position()->set_x(bb.max.x);
+      p12->mutable_position()->set_y(bb.min.y);
+      p12->mutable_position()->set_z(bb.max.z);
+      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.max.x << "," << bb.min.y << "," << bb.max.z << ")" << "\n";
+
+      p21->mutable_position()->set_x(bb.max.x);
+      p21->mutable_position()->set_y(bb.max.y);
+      p21->mutable_position()->set_z(bb.max.z);
+      p22->mutable_position()->set_x(bb.min.x);
+      p22->mutable_position()->set_y(bb.max.y);
+      p22->mutable_position()->set_z(bb.max.z);
+      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.max.y << "," << bb.max.z << ")" << "\n";
+
+      p31->mutable_position()->set_x(bb.max.x);
+      p31->mutable_position()->set_y(bb.min.y);
+      p31->mutable_position()->set_z(bb.max.z);
+      p32->mutable_position()->set_x(bb.min.x);
+      p32->mutable_position()->set_y(bb.min.y);
+      p32->mutable_position()->set_z(bb.max.z);
+      gzmsg << "(" << bb.max.x << "," << bb.min.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.max.z << ")" << "\n";
+
+      p41->mutable_position()->set_x(bb.min.x);
+      p41->mutable_position()->set_y(bb.max.y);
+      p41->mutable_position()->set_z(bb.max.z);
+      p42->mutable_position()->set_x(bb.min.x);
+      p42->mutable_position()->set_y(bb.min.y);
+      p42->mutable_position()->set_z(bb.max.z);
+      gzmsg << "(" << bb.min.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.max.z << ")" << "\n";
+
+      p51->mutable_position()->set_x(bb.max.x);
+      p51->mutable_position()->set_y(bb.max.y);
+      p51->mutable_position()->set_z(bb.min.z);
+      p52->mutable_position()->set_x(bb.max.x);
+      p52->mutable_position()->set_y(bb.min.y);
+      p52->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.min.z << ") -> ("<< bb.max.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
+
+      p61->mutable_position()->set_x(bb.max.x);
+      p61->mutable_position()->set_y(bb.max.y);
+      p61->mutable_position()->set_z(bb.min.z);
+      p62->mutable_position()->set_x(bb.min.x);
+      p62->mutable_position()->set_y(bb.max.y);
+      p62->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.min.z << ") -> ("<< bb.min.x << "," << bb.max.y << "," << bb.min.z << ")" << "\n";
+
+      p71->mutable_position()->set_x(bb.max.x);
+      p71->mutable_position()->set_y(bb.min.y);
+      p71->mutable_position()->set_z(bb.min.z);
+      p72->mutable_position()->set_x(bb.min.x);
+      p72->mutable_position()->set_y(bb.min.y);
+      p72->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.max.x << "," << bb.min.y << "," << bb.min.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
+
+      p81->mutable_position()->set_x(bb.min.x);
+      p81->mutable_position()->set_y(bb.max.y);
+      p81->mutable_position()->set_z(bb.min.z);
+      p82->mutable_position()->set_x(bb.min.x);
+      p82->mutable_position()->set_y(bb.min.y);
+      p82->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.min.x << "," << bb.max.y << "," << bb.min.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
+
+      p91->mutable_position()->set_x(bb.max.x);
+      p91->mutable_position()->set_y(bb.max.y);
+      p91->mutable_position()->set_z(bb.max.z);
+      p92->mutable_position()->set_x(bb.max.x);
+      p92->mutable_position()->set_y(bb.max.y);
+      p92->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.max.x << "," << bb.max.y << "," << bb.min.z << ")" << "\n";
+
+      pA1->mutable_position()->set_x(bb.min.x);
+      pA1->mutable_position()->set_y(bb.max.y);
+      pA1->mutable_position()->set_z(bb.max.z);
+      pA2->mutable_position()->set_x(bb.min.x);
+      pA2->mutable_position()->set_y(bb.max.y);
+      pA2->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.min.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.max.y << "," << bb.min.z << ")" << "\n";
+
+      pB1->mutable_position()->set_x(bb.max.x);
+      pB1->mutable_position()->set_y(bb.min.y);
+      pB1->mutable_position()->set_z(bb.max.z);
+      pB2->mutable_position()->set_x(bb.max.x);
+      pB2->mutable_position()->set_y(bb.min.y);
+      pB2->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.max.x << "," << bb.min.y << "," << bb.max.z << ") -> ("<< bb.max.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
+
+      pC1->mutable_position()->set_x(bb.min.x);
+      pC1->mutable_position()->set_y(bb.min.y);
+      pC1->mutable_position()->set_z(bb.max.z);
+      pC2->mutable_position()->set_x(bb.min.x);
+      pC2->mutable_position()->set_y(bb.min.y);
+      pC2->mutable_position()->set_z(bb.min.z);
+      gzmsg << "(" << bb.min.x << "," << bb.min.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
+    }
+    else
+      drw.set_visible(false);
+
+    drawingPub->Publish(drw);
   }
 }
 
 void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
   boost::mutex::scoped_lock lock(*this->receiveMutex);
-  std::list<msgs::SceneObject_V>::iterator _msg;
+  std::list<msgs::Message_V>::iterator _msg;
 
   for (_msg = this->objectMsgs.begin(); _msg != this->objectMsgs.end(); ++_msg) {
-   // add new objects
-    int o,v,p,t,q,f;
-    o = _msg->object_size();
-    v = _msg->visible_size();
-    p = _msg->pose_size();
-    t = _msg->time_size();
-    q = _msg->query_size();
-    f = _msg->frame_size();
-    if(o == v && v == p && p == t && t == q && q == f && f == o) {
+    // add new objects
+    msgs::SceneObject obj;
+    if(obj.GetTypeName() == _msg->msgtype()) {
+      int o = _msg->msgsdata_size();
       for(int n=0; n<o; n++) {
+        obj.ParseFromString(_msg->msgsdata(n));
         SceneObject so;
-        so.object = _msg->object(n);
-        so.pose = msgs::Convert(_msg->pose(n));
+        so.object = obj.object();
+        so.pose = msgs::Convert(obj.pose());
         so.pose.pos += position_offset;
-        so.visible = _msg->visible(n);
-        so.buffertime = common::Time(_msg->time(n));
-        so.query = _msg->query(n);
-        so.frame = _msg->frame(n);
+        so.visible = obj.visible();
+        so.buffertime = common::Time(obj.time());
+        so.query = obj.query();
+        so.frame = obj.frame();
 
         if(so.buffertime <= common::Time(world->GetSimTime())) {
           update_object(so);

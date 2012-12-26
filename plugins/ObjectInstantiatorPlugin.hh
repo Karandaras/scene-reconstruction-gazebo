@@ -59,14 +59,13 @@ namespace gazebo
                                           framePub,
                                           requestPub,
                                           objectPub,
-                                          bufferPub,
+//                                          bufferPub,
                                           drawingPub,
                                           statusPub;
-      unsigned int                        object_count;
       common::Time                        next_buffer;
       physics::WorldPtr                   world;
       boost::mutex                       *receiveMutex;
-      std::list<msgs::SceneObject_V>      objectMsgs;
+      std::list<msgs::Message_V>          objectMsgs;
       std::vector<event::ConnectionPtr>   connections;
       math::Pose                          out_of_sight;
       math::Vector3                       position_offset;
@@ -81,14 +80,14 @@ namespace gazebo
       void virtual Load(physics::WorldPtr, sdf::ElementPtr);
 
     private:
-      /** Callback for received SceneObject_V messages to enqueue them for buffering
-        * @param _msg SceneObject_V message containing data for buffering
+      /** Callback for received Message_V messages to enqueue them for buffering
+        * @param _msg Message_V message containing data for buffering
         */
-      void OnSceneObjectMsg(ConstSceneObject_VPtr &_msg);
-      /** Callback for received BufferObjects messages to visualize buffer content
-        * @param _msg BufferObjects message containing needed data for visualization
+      void OnSceneObjectMsg(ConstMessage_VPtr &_msg);
+      /** Callback for received SceneObject messages to visualize buffer content
+        * @param _msg SceneObject message containing needed data for visualization
         */
-      void OnBufferObjectMsg(ConstBufferObjectsPtr &_msg);
+      void OnObjectMsg(ConstSceneObjectPtr &_msg);
       /** Callback for received Request messages
         * @param _msg Request message
         */
@@ -119,7 +118,7 @@ namespace gazebo
       /** Fills a message with the current buffer content
         * @param _msg Message that gets filled
         */
-      void fill_buffer_msg(msgs::Message_V &_msg);
+//      void fill_buffer_msg(msgs::Message_V &_msg);
   };
   GZ_REGISTER_WORLD_PLUGIN(ObjectInstantiatorPlugin)
 } 

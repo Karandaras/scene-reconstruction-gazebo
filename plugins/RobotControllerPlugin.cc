@@ -237,7 +237,7 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->srguiPub = this->node->Advertise<msgs::SceneRobotController>(std::string("~/SceneReconstruction/RobotController/ControllerInfo"));
   this->offsetPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
-  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
+//  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
   this->drawingPub = this->node->Advertise<msgs::Drawing>("~/draw");
 
   // connect update to worldupdate
@@ -268,12 +268,17 @@ void RobotControllerPlugin::Reset()
   robotControlList.clear();
   controlMsgs.clear();
   if(initMsg)
-    InitMsg();
+    __reset = true;  
 }
 
 /////////////////////////////////////////////////
 void RobotControllerPlugin::OnUpdate()
 {
+  if(__reset) {
+    InitMsg();
+    __reset = false;
+  }
+
   if(!__available) {
     msgs::Response response;
     response.set_id(-1);
@@ -329,23 +334,23 @@ void RobotControllerPlugin::OnUpdate()
     this->srguiPub->Publish(src);
   }
 
-  unsigned int jcl = jointControlList.size();
-  unsigned int rcl = robotControlList.size();
+//  unsigned int jcl = jointControlList.size();
+//  unsigned int rcl = robotControlList.size();
 
   this->ProcessControlMsgs();
   this->ControlRobot(now);
   this->ControlJoints(now);
 
-  if(jcl != jointControlList.size()) {
-    msgs::Message_V jointbuffer;
-    fill_joint_buffer_msg(jointbuffer);
-    bufferPub->Publish(jointbuffer);
-  }
-  if(rcl != robotControlList.size()) {
-    msgs::Message_V positionbuffer;
-    fill_position_buffer_msg(positionbuffer);
-    bufferPub->Publish(positionbuffer);
-  }
+//  if(jcl != jointControlList.size()) {
+//    msgs::Message_V jointbuffer;
+//    fill_joint_buffer_msg(jointbuffer);
+//    bufferPub->Publish(jointbuffer);
+//  }
+//  if(rcl != robotControlList.size()) {
+//    msgs::Message_V positionbuffer;
+//    fill_position_buffer_msg(positionbuffer);
+//    bufferPub->Publish(positionbuffer);
+//  }
 
   if(!this->bufferpreview_joint)
     this->model->SetJointPositions(currentjointpositions);
@@ -464,33 +469,7 @@ void RobotControllerPlugin::ProcessControlMsgs() {
           c.controltime = common::Time(robot.controltime());
         else
           c.controltime = common::Time(world->GetSimTime());
-        c.pose.pos.x = robot.pos_x();
-        c.pose.pos.y = robot.pos_y();
-        if(robot.has_pos_z())
-          c.pose.pos.z = robot.pos_z();
-        else {
-          c.pose.pos.z = 0.0;
-        }
-
-        if(robot.has_ori_w())
-          c.pose.rot.w = robot.ori_w();
-        else
-          c.pose.rot.w = 0.0;
-
-        if(robot.has_ori_x())
-          c.pose.rot.x = robot.ori_x();
-        else
-          c.pose.rot.x = 0.0;
-
-        if(robot.has_ori_y())
-          c.pose.rot.y = robot.ori_y();
-        else
-          c.pose.rot.y = 0.0;
-
-        if(robot.has_ori_z())
-          c.pose.rot.z = robot.ori_z();
-        else
-          c.pose.rot.z = 0.0;
+        c.pose = msgs::Convert(robot.pose());
         
         c.pose.pos += position_offset;
 
@@ -608,18 +587,19 @@ void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 
     this->offsetPub->Publish(response);
   }
-  else if(_msg->request() == "update_joint_buffer") {
-    msgs::Message_V jointbuffer;
-    fill_joint_buffer_msg(jointbuffer);
-    bufferPub->Publish(jointbuffer);
-  }
-  else if(_msg->request() == "update_position_buffer") {
-    msgs::Message_V positionbuffer;
-    fill_position_buffer_msg(positionbuffer);
-    bufferPub->Publish(positionbuffer);
-  }
+//  else if(_msg->request() == "update_joint_buffer") {
+//    msgs::Message_V jointbuffer;
+//    fill_joint_buffer_msg(jointbuffer);
+//    bufferPub->Publish(jointbuffer);
+//  }
+//  else if(_msg->request() == "update_position_buffer") {
+//    msgs::Message_V positionbuffer;
+//    fill_position_buffer_msg(positionbuffer);
+//    bufferPub->Publish(positionbuffer);
+//  }
 }
 
+/*
 void RobotControllerPlugin::fill_joint_buffer_msg(msgs::Message_V &_msg) {
   std::list<JointCommand>::iterator it;
   common::Time time(0.0);
@@ -669,32 +649,33 @@ void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
     pos.SerializeToString(msg);
   }
 }
+*/
 
-void RobotControllerPlugin::OnPositionMsg(ConstBufferPositionPtr &_msg) {
-  if(_msg->timestamp() < 0.0) {
+void RobotControllerPlugin::OnPositionMsg(ConstSceneRobotPtr &_msg) {
+  if(_msg->controltime() < 0.0) {
     this->bufferpreview_pose = false;
     this->model->SetRelativePose(currentpose);
   }
   else {
     this->bufferpreview_pose = true;
-    this->model->SetRelativePose(msgs::Convert(_msg->position()));
+    this->model->SetRelativePose(msgs::Convert(_msg->pose()));
   }
 }
 
-void RobotControllerPlugin::OnAnglesMsg(ConstBufferJointsPtr &_msg) {
-  if(_msg->timestamp() < 0.0) {
+void RobotControllerPlugin::OnAnglesMsg(ConstSceneJointPtr &_msg) {
+  if(_msg->controltime() < 0.0) {
     this->bufferpreview_joint = false;
     this->model->SetJointPositions(currentjointpositions);
   }
   else {
     int n, a;
-    n = _msg->name_size();
+    n = _msg->joint_size();
     a = _msg->angle_size();
     if(a == n) {
       std::map<std::string, double> bufferpositions(currentjointpositions.begin(), currentjointpositions.end());
 
       for(int i=0; i<a; i++) {
-        jointiter = jointdata.find(_msg->name(i));
+        jointiter = jointdata.find(_msg->joint(i));
         if(jointiter != jointdata.end()) {
           bufferpositions[jointiter->second.simulator_name] = _msg->angle(i)*this->jointiter->second.factor + jointiter->second.offset;
           if(jointiter->second.gripper) {

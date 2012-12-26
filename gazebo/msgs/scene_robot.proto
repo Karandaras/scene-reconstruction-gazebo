@@ -5,17 +5,11 @@ package gazebo.msgs;
 /// \brief Control the Robot via the RobotControllerPlugin
 /// \verbatim
 
+import "pose.proto";
+
 message SceneRobot
 {
-	required double pos_x			        = 1;
-	required double pos_y			        = 2;
-	optional double pos_z			        = 3;
-	
-	optional double ori_x			        = 4;
-	optional double ori_y			        = 5;
-	optional double ori_z			        = 6;
-	optional double ori_w			        = 7;
-
-  optional double controltime       = 8;
+	required Pose   pose              = 1;
+  optional double controltime       = 2;
 }
 

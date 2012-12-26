@@ -76,7 +76,6 @@ set (msgs
   scene_joint.proto
   scene_robotcontroller.proto
   scene_object.proto
-  scene_object_v.proto
   message_v.proto
   scene_document.proto
   scene_images.proto
@@ -84,9 +83,6 @@ set (msgs
   scene_framework_control.proto
   scene_robot.proto
   transform_request.proto
-  buffer_joints.proto
-  buffer_objects.proto
-  buffer_position.proto
   lasers.proto
   drawing.proto
 )
