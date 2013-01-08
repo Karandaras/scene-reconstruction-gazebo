@@ -40,7 +40,7 @@
 #include "gazebo/rendering/UserCamera.hh"
 #include "gazebo/rendering/Camera.hh"
 #include "gazebo/rendering/DepthCamera.hh"
-#include "gazebo/rendering/GpuLaser.hh"
+// #include "gazebo/rendering/GpuLaser.hh"
 #include "gazebo/rendering/Grid.hh"
 #include "gazebo/rendering/DynamicLines.hh"
 #include "gazebo/rendering/RFIDVisual.hh"
@@ -96,11 +96,17 @@ Scene::Scene(const std::string &_name, bool _enableVisualizations)
   this->connections.push_back(
       event::Events::ConnectPreRender(boost::bind(&Scene::PreRender, this)));
 
+  this->connections.push_back(
+      Events::ConnectViewContacts(boost::bind(&Scene::ViewContacts, this, _1)));
+
   this->sensorSub = this->node->Subscribe("~/sensor",
                                           &Scene::OnSensorMsg, this);
   this->visSub = this->node->Subscribe("~/visual", &Scene::OnVisualMsg, this);
+
   this->lightPub = this->node->Advertise<msgs::Light>("~/light");
+
   this->lightSub = this->node->Subscribe("~/light", &Scene::OnLightMsg, this);
+
   this->poseSub = this->node->Subscribe("~/pose/info", &Scene::OnPoseMsg, this);
   this->jointSub = this->node->Subscribe("~/joint", &Scene::OnJointMsg, this);
   this->skeletonPoseSub = this->node->Subscribe("~/skeleton_pose/info",
@@ -130,7 +136,7 @@ Scene::Scene(const std::string &_name, bool _enableVisualizations)
   this->sdf.reset(new sdf::Element);
   sdf::initFile("scene.sdf", this->sdf);
 
-  this->heightmap = NULL;
+  this->terrain = NULL;
   this->selectedVis.reset();
 }
 
@@ -191,7 +197,7 @@ Scene::~Scene()
   this->lights.clear();
 
   // Remove a scene
-  RTShaderSystem::Instance()->RemoveScene(this);
+  RTShaderSystem::Instance()->RemoveScene(shared_from_this());
 
   for (uint32_t i = 0; i < this->grids.size(); i++)
     delete this->grids[i];
@@ -242,8 +248,8 @@ void Scene::Init()
   this->worldVisual.reset(new Visual("__world_node__", shared_from_this()));
 
   // RTShader system self-enables if the render path type is FORWARD,
-  RTShaderSystem::Instance()->AddScene(this);
-  RTShaderSystem::Instance()->ApplyShadows(this);
+  RTShaderSystem::Instance()->AddScene(shared_from_this());
+  RTShaderSystem::Instance()->ApplyShadows(shared_from_this());
 
   if (RenderEngine::Instance()->GetRenderPathType() == RenderEngine::DEFERRED)
     this->InitDeferredShading();
@@ -275,12 +281,6 @@ void Scene::Init()
   this->requestMsg = msgs::CreateRequest("scene_info");
   this->requestPub->Publish(*this->requestMsg);
 
-  // TODO: Add GUI option to view all contacts
-  /*ContactVisualPtr contactVis(new ContactVisual(
-        "_GUIONLY_world_contact_vis",
-        this->worldVisual, "~/physics/contacts"));
-  this->visuals[contactVis->GetName()] = contactVis;
-  */
 
   Road2d *road = new Road2d();
   road->Load(this->worldVisual);
@@ -365,7 +365,8 @@ void Scene::SetAmbientColor(const common::Color &_color)
   this->sdf->GetElement("ambient")->Set(_color);
 
   // Ambient lighting
-  if (this->manager)
+  if (this->manager &&
+      Conversions::Convert(this->manager->getAmbientLight()) != _color)
   {
     this->manager->setAmbientLight(Conversions::Convert(_color));
   }
@@ -381,22 +382,24 @@ common::Color Scene::GetAmbientColor() const
 void Scene::SetBackgroundColor(const common::Color &_color)
 {
   this->sdf->GetElement("background")->Set(_color);
+  Ogre::ColourValue clr = Conversions::Convert(_color);
 
   std::vector<CameraPtr>::iterator iter;
   for (iter = this->cameras.begin(); iter != this->cameras.end(); ++iter)
   {
-    if ((*iter)->GetViewport())
-      (*iter)->GetViewport()->setBackgroundColour(Conversions::Convert(_color));
+    if ((*iter)->GetViewport() &&
+        (*iter)->GetViewport()->getBackgroundColour() != clr)
+      (*iter)->GetViewport()->setBackgroundColour(clr);
   }
 
   std::vector<UserCameraPtr>::iterator iter2;
   for (iter2 = this->userCameras.begin();
        iter2 != this->userCameras.end(); ++iter2)
   {
-    if ((*iter2)->GetViewport())
+    if ((*iter2)->GetViewport() &&
+        (*iter2)->GetViewport()->getBackgroundColour() != clr)
     {
-      (*iter2)->GetViewport()->setBackgroundColour(
-          Conversions::Convert(_color));
+      (*iter2)->GetViewport()->setBackgroundColour(clr);
     }
   }
 }
@@ -440,7 +443,8 @@ uint32_t Scene::GetGridCount() const
 //////////////////////////////////////////////////
 CameraPtr Scene::CreateCamera(const std::string &_name, bool _autoRender)
 {
-  CameraPtr camera(new Camera(this->name + "::" + _name, this, _autoRender));
+  CameraPtr camera(new Camera(this->name + "::" + _name,
+        shared_from_this(), _autoRender));
   this->cameras.push_back(camera);
 
   return camera;
@@ -451,14 +455,14 @@ DepthCameraPtr Scene::CreateDepthCamera(const std::string &_name,
                                         bool _autoRender)
 {
   DepthCameraPtr camera(new DepthCamera(this->name + "::" + _name,
-        this, _autoRender));
+        shared_from_this(), _autoRender));
   this->cameras.push_back(camera);
 
   return camera;
 }
 
 //////////////////////////////////////////////////
-GpuLaserPtr Scene::CreateGpuLaser(const std::string &_name,
+/*GpuLaserPtr Scene::CreateGpuLaser(const std::string &_name,
                                         bool _autoRender)
 {
   GpuLaserPtr camera(new GpuLaser(this->name + "::" + _name,
@@ -466,7 +470,7 @@ GpuLaserPtr Scene::CreateGpuLaser(const std::string &_name,
   this->cameras.push_back(camera);
 
   return camera;
-}
+}*/
 
 //////////////////////////////////////////////////
 uint32_t Scene::GetCameraCount() const
@@ -502,7 +506,8 @@ CameraPtr Scene::GetCamera(const std::string &_name) const
 //////////////////////////////////////////////////
 UserCameraPtr Scene::CreateUserCamera(const std::string &name_)
 {
-  UserCameraPtr camera(new UserCamera(this->GetName() + "::" + name_, this));
+  UserCameraPtr camera(new UserCamera(this->GetName() + "::" + name_,
+                       shared_from_this()));
   camera->Load();
   camera->Init();
   this->userCameras.push_back(camera);
@@ -581,9 +586,10 @@ VisualPtr Scene::GetVisual(const std::string &_name) const
 }
 
 //////////////////////////////////////////////////
-void Scene::SelectVisual(const std::string &_name)
+void Scene::SelectVisual(const std::string &_name, const std::string &_mode)
 {
   this->selectedVis = this->GetVisual(_name);
+  this->selectionMode = _mode;
 }
 
 //////////////////////////////////////////////////
@@ -607,10 +613,26 @@ VisualPtr Scene::GetVisualAt(CameraPtr _camera,
     // Make sure we set the _mod only if we have found a selection object
     if (closestEntity->getName().substr(0, 15) == "__SELECTION_OBJ" &&
         closestEntity->getUserAny().getType() == typeid(std::string))
-      _mod = Ogre::any_cast<std::string>(closestEntity->getUserAny());
+    {
+      try
+      {
+        _mod = Ogre::any_cast<std::string>(closestEntity->getUserAny());
+      }
+      catch(boost::bad_any_cast &e)
+      {
+        gzerr << "boost any_cast error:" << e.what() << "\n";
+      }
+    }
 
-    visual = this->GetVisual(Ogre::any_cast<std::string>(
-          closestEntity->getUserAny()));
+    try
+    {
+      visual = this->GetVisual(Ogre::any_cast<std::string>(
+            closestEntity->getUserAny()));
+    }
+    catch(boost::bad_any_cast &e)
+    {
+      gzerr << "boost any_cast error:" << e.what() << "\n";
+    }
   }
 
   return visual;
@@ -670,10 +692,58 @@ VisualPtr Scene::GetVisualBelow(const std::string &_visualName)
 }
 
 //////////////////////////////////////////////////
+double Scene::GetHeightBelowPoint(const math::Vector3 &_pt)
+{
+  double height = 0;
+  Ogre::Ray ray(Conversions::Convert(_pt), Ogre::Vector3(0, 0, -1));
+
+  if (!this->raySceneQuery)
+    this->raySceneQuery = this->manager->createRayQuery(Ogre::Ray());
+  this->raySceneQuery->setRay(ray);
+  this->raySceneQuery->setSortByDistance(true, 0);
+
+  // Perform the scene query
+  Ogre::RaySceneQueryResult &result = this->raySceneQuery->execute();
+  Ogre::RaySceneQueryResult::iterator iter;
+
+  for (iter = result.begin(); iter != result.end(); ++iter)
+  {
+    // is the result a MovableObject
+    if (iter->movable && iter->movable->getMovableType().compare("Entity") == 0)
+    {
+      if (!iter->movable->isVisible() ||
+          iter->movable->getName().find("__COLLISION_VISUAL__") !=
+          std::string::npos)
+        continue;
+      if (iter->movable->getName().substr(0, 15) == "__SELECTION_OBJ")
+        continue;
+
+      height = _pt.z - iter->distance;
+      break;
+    }
+  }
+
+  // The default ray scene query does not work with terrain, so we have to
+  // check ourselves.
+  if (this->terrain)
+  {
+    double terrainHeight = this->terrain->GetHeight(_pt.x, _pt.y, _pt.z);
+    std::cout << "Terrain Heihgt[" << terrainHeight << "]\n";
+    if (terrainHeight <= _pt.z)
+      height = std::max(height, terrainHeight);
+  }
+
+  return height;
+}
+
+//////////////////////////////////////////////////
 void Scene::GetVisualsBelowPoint(const math::Vector3 &_pt,
                                  std::vector<VisualPtr> &_visuals)
 {
   Ogre::Ray ray(Conversions::Convert(_pt), Ogre::Vector3(0, 0, -1));
+
+  if (!this->raySceneQuery)
+    this->raySceneQuery = this->manager->createRayQuery(Ogre::Ray());
 
   this->raySceneQuery->setRay(ray);
   this->raySceneQuery->setSortByDistance(true, 0);
@@ -699,10 +769,17 @@ void Scene::GetVisualsBelowPoint(const math::Vector3 &_pt,
       Ogre::Entity *pentity = static_cast<Ogre::Entity*>(iter->movable);
       if (pentity)
       {
-        VisualPtr v = this->GetVisual(Ogre::any_cast<std::string>(
-                                      pentity->getUserAny()));
-        if (v)
-          _visuals.push_back(v);
+        try
+        {
+          VisualPtr v = this->GetVisual(Ogre::any_cast<std::string>(
+                                        pentity->getUserAny()));
+          if (v)
+            _visuals.push_back(v);
+        }
+        catch(boost::bad_any_cast &e)
+        {
+          gzerr << "boost any_cast error:" << e.what() << "\n";
+        }
       }
     }
   }
@@ -718,8 +795,15 @@ VisualPtr Scene::GetVisualAt(CameraPtr _camera,
                                                       _mousePos, true);
   if (closestEntity)
   {
-    visual = this->GetVisual(Ogre::any_cast<std::string>(
-          closestEntity->getUserAny()));
+    try
+    {
+      visual = this->GetVisual(Ogre::any_cast<std::string>(
+            closestEntity->getUserAny()));
+    }
+    catch(boost::bad_any_cast &e)
+    {
+      gzerr << "boost any_cast error:" << e.what() << "\n";
+    }
   }
 
   return visual;
@@ -834,7 +918,7 @@ math::Vector3 Scene::GetFirstContact(CameraPtr _camera,
   Ogre::RaySceneQueryResult &result = this->raySceneQuery->execute();
   Ogre::RaySceneQueryResult::iterator iter = result.begin();
 
-  for (;iter != result.end() && math::equal(iter->distance, 0.0f); ++iter);
+  for (; iter != result.end() && math::equal(iter->distance, 0.0f); ++iter);
 
   Ogre::Vector3 pt = mouseRay.getPoint(iter->distance);
 
@@ -1359,17 +1443,19 @@ void Scene::PreRender()
   while (pIter != this->poseMsgs.end())
   {
     Visual_M::iterator iter = this->visuals.find((*pIter)->name());
-    if (iter != this->visuals.end())
+    if (iter != this->visuals.end() && iter->second)
     {
       // If an object is selected, don't let the physics engine move it.
-      if (!this->selectedVis ||
+      if (!this->selectedVis || this->selectionMode != "move" ||
           iter->first.find(this->selectedVis->GetName()) == std::string::npos)
       {
         math::Pose pose = msgs::Convert(*(*pIter));
         iter->second->SetPose(pose);
+        PoseMsgs_L::iterator prev = pIter++;
+        this->poseMsgs.erase(prev);
       }
-      PoseMsgs_L::iterator prev = pIter++;
-      this->poseMsgs.erase(prev);
+      else
+        ++pIter;
     }
     else
       ++pIter;
@@ -1387,7 +1473,7 @@ void Scene::PreRender()
       if (iter2 != this->visuals.end())
       {
         // If an object is selected, don't let the physics engine move it.
-        if (!this->selectedVis ||
+        if (!this->selectedVis || this->selectionMode != "move" ||
           iter->first.find(this->selectedVis->GetName()) == std::string::npos)
         {
           math::Pose pose = msgs::Convert(pose_msg);
@@ -1447,7 +1533,7 @@ void Scene::PreRender()
 
   if (this->selectionMsg)
   {
-    this->SelectVisual(this->selectionMsg->name());
+    this->SelectVisual(this->selectionMsg->name(), "normal");
     this->selectionMsg.reset();
   }
 }
@@ -1467,16 +1553,17 @@ bool Scene::ProcessSensorMsg(ConstSensorPtr &_msg)
 
   if (_msg->type() == "ray" && _msg->visualize() && !_msg->topic().empty())
   {
-    if (!this->visuals[_msg->name()+"_laser_vis"])
+    std::string rayVisualName = _msg->parent() + "::" + _msg->name();
+    if (!this->visuals[rayVisualName+"_laser_vis"])
     {
       VisualPtr parentVis = this->GetVisual(_msg->parent());
       if (!parentVis)
         return false;
 
       LaserVisualPtr laserVis(new LaserVisual(
-            _msg->name()+"_GUIONLY_laser_vis", parentVis, _msg->topic()));
+            rayVisualName+"_GUIONLY_laser_vis", parentVis, _msg->topic()));
       laserVis->Load();
-      this->visuals[_msg->name()+"_laser_vis"] = laserVis;
+      this->visuals[rayVisualName+"_laser_vis"] = laserVis;
     }
   }
   else if (_msg->type() == "camera" && _msg->visualize())
@@ -1716,11 +1803,20 @@ void Scene::ProcessRequestMsg(ConstRequestPtr &_msg)
   }
   else if (_msg->request() == "entity_delete")
   {
-    Visual_M::iterator iter;
-    iter = this->visuals.find(_msg->data());
-    if (iter != this->visuals.end())
+    Light_M::iterator lightIter = this->lights.find(_msg->data());
+
+    // Check to see if the deleted entity is a light.
+    if (lightIter != this->lights.end())
     {
-      this->RemoveVisual(iter->second);
+      this->lights.erase(lightIter);
+    }
+    // Otherwise delete a visual
+    else
+    {
+      Visual_M::iterator iter;
+      iter = this->visuals.find(_msg->data());
+      if (iter != this->visuals.end())
+        this->RemoveVisual(iter->second);
     }
   }
   else if (_msg->request() == "show_collision")
@@ -1810,12 +1906,12 @@ bool Scene::ProcessVisualMsg(ConstVisualPtr &_msg)
     {
       // Ignore collision visuals for the heightmap
       if (_msg->name().find("__COLLISION_VISUAL__") == std::string::npos &&
-          this->heightmap == NULL)
+          this->terrain == NULL)
       {
         try
         {
-          this->heightmap = new Heightmap(shared_from_this());
-          this->heightmap->LoadFromMsg(_msg);
+          this->terrain = new Heightmap(shared_from_this());
+          this->terrain->LoadFromMsg(_msg);
         } catch(...)
         {
           return false;
@@ -1914,10 +2010,9 @@ void Scene::ProcessLightMsg(ConstLightPtr &_msg)
   Light_M::iterator iter;
   iter = this->lights.find(_msg->name());
 
-
   if (iter == this->lights.end())
   {
-    LightPtr light(new Light(this));
+    LightPtr light(new Light(shared_from_this()));
     light->LoadFromMsg(_msg);
     this->lightPub->Publish(*_msg);
     this->lights[_msg->name()] = light;
@@ -2109,13 +2204,13 @@ void Scene::SetShadowsEnabled(bool _value)
 #endif
   }
   else if (RenderEngine::Instance()->GetRenderPathType() ==
-      RenderEngine::FORWARD)
+           RenderEngine::FORWARD)
   {
     // RT Shader shadows
     if (_value)
-      RTShaderSystem::Instance()->ApplyShadows(this);
+      RTShaderSystem::Instance()->ApplyShadows(shared_from_this());
     else
-      RTShaderSystem::Instance()->RemoveShadows(this);
+      RTShaderSystem::Instance()->RemoveShadows(shared_from_this());
   }
   else
   {
@@ -2123,7 +2218,8 @@ void Scene::SetShadowsEnabled(bool _value)
     this->manager->setShadowTextureSize(512);
 
     // The default shadows.
-    if (_value)
+    if (_value && this->manager->getShadowTechnique()
+        != Ogre::SHADOWTYPE_TEXTURE_ADDITIVE)
       this->manager->setShadowTechnique(Ogre::SHADOWTYPE_TEXTURE_ADDITIVE);
     else
       this->manager->setShadowTechnique(Ogre::SHADOWTYPE_NONE);
@@ -2214,7 +2310,7 @@ std::string Scene::StripSceneName(const std::string &_name) const
 //////////////////////////////////////////////////
 Heightmap *Scene::GetHeightmap() const
 {
-  return this->heightmap;
+  return this->terrain;
 }
 
 /////////////////////////////////////////////////
@@ -2249,4 +2345,24 @@ VisualPtr Scene::CloneVisual(const std::string &_visualName,
     this->visuals[_newName] = result;
   }
   return result;
+}
+
+/////////////////////////////////////////////////
+void Scene::ViewContacts(bool _view)
+{
+  ContactVisualPtr vis = boost::shared_dynamic_cast<ContactVisual>(
+      this->visuals["__GUIONLY_CONTACT_VISUAL__"]);
+
+  if (!vis && _view)
+  {
+    vis.reset(new ContactVisual("__GUIONLY_CONTACT_VISUAL__",
+              this->worldVisual, "~/physics/contacts"));
+    vis->SetEnabled(_view);
+    this->visuals[vis->GetName()] = vis;
+  }
+
+  if (vis)
+    vis->SetEnabled(_view);
+  else
+    gzerr << "Unable to get contact visualization. This should never happen.\n";
 }

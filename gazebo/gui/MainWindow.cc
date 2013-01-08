@@ -24,14 +24,15 @@
 #include "transport/Transport.hh"
 
 #include "rendering/UserCamera.hh"
+#include "rendering/RenderEvents.hh"
 
 #include "gui/Actions.hh"
 #include "gui/Gui.hh"
 #include "gui/InsertModelWidget.hh"
 #include "gui/SkyWidget.hh"
 #include "gui/ModelListWidget.hh"
-#include "gui/LightListWidget.hh"
 #include "gui/RenderWidget.hh"
+#include "gui/ToolsWidget.hh"
 #include "gui/GLWidget.hh"
 #include "gui/MainWindow.hh"
 #include "gui/GuiEvents.hh"
@@ -74,6 +75,8 @@ MainWindow::MainWindow()
                                  QSizePolicy::Expanding);
   this->tabWidget->setMinimumWidth(250);
 
+  this->toolsWidget = new ToolsWidget();
+
   this->renderWidget = new RenderWidget(mainWidget);
 
   QHBoxLayout *centerLayout = new QHBoxLayout;
@@ -81,12 +84,16 @@ MainWindow::MainWindow()
   QSplitter *splitter = new QSplitter(this);
   splitter->addWidget(this->tabWidget);
   splitter->addWidget(this->renderWidget);
+  splitter->addWidget(this->toolsWidget);
+
   QList<int> sizes;
   sizes.push_back(300);
-  sizes.push_back(1000);
+  sizes.push_back(700);
+  sizes.push_back(300);
   splitter->setSizes(sizes);
   splitter->setStretchFactor(0, 1);
   splitter->setStretchFactor(1, 2);
+  splitter->setStretchFactor(2, 1);
   splitter->setCollapsible(1, false);
 
   centerLayout->addWidget(splitter);
@@ -121,7 +128,7 @@ MainWindow::MainWindow()
 
   this->connections.push_back(
      event::Events::ConnectSetSelectedEntity(
-       boost::bind(&MainWindow::OnSetSelectedEntity, this, _1)));
+       boost::bind(&MainWindow::OnSetSelectedEntity, this, _1, _2)));
 }
 
 /////////////////////////////////////////////////
@@ -180,6 +187,7 @@ void MainWindow::closeEvent(QCloseEvent * /*_event*/)
   gazebo::stop();
   this->renderWidget->hide();
   this->tabWidget->hide();
+  this->toolsWidget->hide();
 
   this->connections.clear();
 
@@ -255,9 +263,15 @@ void MainWindow::SaveAs()
 void MainWindow::About()
 {
   std::string helpTxt = "Gazebo is a 3D multi-robot simulator with dynamics. ";
-  helpTxt += "It is capable of simulating articulated robot in complex and ";
-  helpTxt += "realistic environments.\n Visit http://www.gazebosim.org for ";
-  helpTxt += "more information.";
+  helpTxt += "It is capable of simulating articulated robots in complex and ";
+  helpTxt += "realistic environments.\n\n";
+
+  helpTxt += "Web site:\t\thttp://gazebosim.org\n";
+  helpTxt += "Tutorials:\t\thttp://gazebosim.org/wiki/tutorials\n";
+  helpTxt += "User Guide:\t\thttp://gazebosim.org/user_guide\n";
+  helpTxt += "API:\t\thttp://gazebosim.org/api\n";
+  helpTxt += "SDF:\t\thttp://gazebosim.org/sdf\n";
+  helpTxt += "Messages:\t\thttp://gazebosim.org/msgs\n";
   QMessageBox::about(this, tr("About Gazebo"), tr(helpTxt.c_str()));
 }
 
@@ -398,6 +412,7 @@ void MainWindow::OnFullScreen(bool _value)
     this->showFullScreen();
     this->renderWidget->showFullScreen();
     this->tabWidget->hide();
+    this->toolsWidget->hide();
     this->menuBar->hide();
   }
   else
@@ -405,6 +420,7 @@ void MainWindow::OnFullScreen(bool _value)
     this->showNormal();
     this->renderWidget->showNormal();
     this->tabWidget->show();
+    this->toolsWidget->show();
     this->menuBar->show();
   }
 }
@@ -413,7 +429,7 @@ void MainWindow::OnFullScreen(bool _value)
 void MainWindow::ViewReset()
 {
   rendering::UserCameraPtr cam = gui::get_active_camera();
-  cam->SetWorldPose(math::Pose(-5, 0, 1, 0, GZ_DTOR(11.31), 0));
+  cam->SetWorldPose(math::Pose(5, -5, 2, 0, GZ_DTOR(11.31), GZ_DTOR(135)));
 }
 
 /////////////////////////////////////////////////
@@ -423,6 +439,12 @@ void MainWindow::ViewGrid()
   msg.set_name("default");
   msg.set_grid(g_viewGridAct->isChecked());
   this->scenePub->Publish(msg);
+}
+
+/////////////////////////////////////////////////
+void MainWindow::ViewContacts()
+{
+  gazebo::rendering::Events::viewContacts(g_viewContactsAct->isChecked());
 }
 
 /////////////////////////////////////////////////
@@ -490,7 +512,7 @@ void MainWindow::CreateActions()
   connect(g_newModelAct, SIGNAL(triggered()), this, SLOT(NewModel()));
 
   g_resetModelsAct = new QAction(tr("&Reset Model Poses"), this);
-  g_resetModelsAct->setShortcut(tr("Ctrl+Shift-R"));
+  g_resetModelsAct->setShortcut(tr("Ctrl+Shift+R"));
   g_resetModelsAct->setStatusTip(tr("Reset model poses"));
   connect(g_resetModelsAct, SIGNAL(triggered()), this,
     SLOT(OnResetModelOnly()));
@@ -587,7 +609,7 @@ void MainWindow::CreateActions()
       SLOT(CreateDirectionalLight()));
 
   g_viewResetAct = new QAction(tr("Reset View"), this);
-  g_viewResetAct->setStatusTip(tr("Move camera to origin"));
+  g_viewResetAct->setStatusTip(tr("Move camera to pose"));
   connect(g_viewResetAct, SIGNAL(triggered()), this,
       SLOT(ViewReset()));
 
@@ -597,6 +619,13 @@ void MainWindow::CreateActions()
   g_viewGridAct->setChecked(true);
   connect(g_viewGridAct, SIGNAL(triggered()), this,
           SLOT(ViewGrid()));
+
+  g_viewContactsAct = new QAction(tr("Contacts"), this);
+  g_viewContactsAct->setStatusTip(tr("View Contacts"));
+  g_viewContactsAct->setCheckable(true);
+  g_viewContactsAct->setChecked(false);
+  connect(g_viewContactsAct, SIGNAL(triggered()), this,
+          SLOT(ViewContacts()));
 
   g_viewFullScreenAct = new QAction(tr("Full Screen"), this);
   g_viewFullScreenAct->setStatusTip(tr("View Full Screen(F-11 to exit)"));
@@ -645,6 +674,7 @@ void MainWindow::CreateMenus()
 
   this->viewMenu = this->menuBar->addMenu(tr("&View"));
   this->viewMenu->addAction(g_viewGridAct);
+  this->viewMenu->addAction(g_viewContactsAct);
   this->viewMenu->addSeparator();
   this->viewMenu->addAction(g_viewResetAct);
   this->viewMenu->addAction(g_viewFullScreenAct);
@@ -694,9 +724,9 @@ void MainWindow::OnGUI(ConstGUIPtr &_msg)
   {
     rendering::UserCameraPtr cam = gui::get_active_camera();
 
-    if (_msg->camera().has_origin())
+    if (_msg->camera().has_pose())
     {
-      const msgs::Pose &msg_pose = _msg->camera().origin();
+      const msgs::Pose &msg_pose = _msg->camera().pose();
 
       math::Vector3 cam_pose_pos = math::Vector3(
         msg_pose.position().x(),
@@ -806,8 +836,6 @@ unsigned int MainWindow::GetEntityId(const std::string &_name)
   iter = this->entities.find(name);
   if (iter != this->entities.end())
     result = iter->second;
-  else
-    gzerr << "Unable to find model[" << _name << "]\n";
 
   return result;
 }
@@ -850,7 +878,8 @@ void MainWindow::OnManipMode(const std::string &_mode)
 }
 
 /////////////////////////////////////////////////
-void MainWindow::OnSetSelectedEntity(const std::string &_name)
+void MainWindow::OnSetSelectedEntity(const std::string &_name,
+                                     const std::string &/*_mode*/)
 {
   if (!_name.empty())
   {

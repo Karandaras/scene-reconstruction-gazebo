@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * Date: 23 february 2004
 */
 
-#ifndef RAYSENSOR_HH
-#define RAYSENSOR_HH
+#ifndef _RAYSENSOR_HH_
+#define _RAYSENSOR_HH_
 
 #include <vector>
 #include <string>
@@ -36,12 +36,16 @@ namespace gazebo
   class Collision;
   class MultiRayShape;
 
+  /// \ingroup gazebo_sensors
+  /// \brief Sensors namespace
   namespace sensors
   {
     /// \addtogroup gazebo_sensors
     /// \{
 
-    /// \brief Ray or laser sensor with one or more rays.
+    /// \class RaySensor RaySensor.hh sensors/sensors.hh
+    /// \brief Sensor with one or more rays.
+    ///
     /// This sensor cast rays into the world, tests for intersections, and
     /// reports the range to the nearest object.  It is used by ranging
     /// sensor models (e.g., sonars and scanning laser range finders).
@@ -53,33 +57,31 @@ namespace gazebo
       /// \brief Destructor
       public: virtual ~RaySensor();
 
-      /// Load the ray using parameter from an SDF
-      /// \param node The XMLConfig node
-      public: virtual void Load(const std::string &_worldName,
-                                sdf::ElementPtr _sdf);
-
+      // Documentation inherited
       public: virtual void Load(const std::string &_worldName);
 
-      /// Initialize the ray
+      // Documentation inherited
       public: virtual void Init();
 
-      /// \brief Update the sensor information
+      // Documentation inherited
       protected: virtual void UpdateImpl(bool _force);
 
-      /// Finalize the ray
+      // Documentation inherited
       protected: virtual void Fini();
 
+      // Documentation inherited
       public: virtual std::string GetTopic() const;
 
       /// \brief Get the minimum angle
-      /// \return The minimum angle
+      /// \return The minimum angle object
       public: math::Angle GetAngleMin() const;
 
       /// \brief Get the maximum angle
-      /// \return the maximum angle
+      /// \return the maximum angle object
       public: math::Angle GetAngleMax() const;
 
-      /// \brief Get radians between each range
+      /// \brief Get the angle in radians between each range
+      /// \return Resolution of the angle
       public: double GetAngleResolution() const;
 
       /// \brief Get the minimum range
@@ -91,6 +93,7 @@ namespace gazebo
       public: double GetRangeMax() const;
 
       /// \brief Get the range resolution
+      /// \return Resolution of the range
       public: double GetRangeResolution() const;
 
       /// \brief Get the ray count
@@ -120,36 +123,42 @@ namespace gazebo
       /// \brief Get detected range for a ray.
       ///         Warning: If you are accessing all the ray data in a loop
       ///         it's possible that the Ray will update in the middle of
-      ///         your aceess loop. This means some data will come from one
+      ///         your access loop. This means some data will come from one
       ///         scan, and some from another scan. You can solve this
       ///         problem by using SetActive(false) <your accessor loop>
       ///         SetActive(true).
+      /// \param[in] _index Index of specific ray
       /// \return Returns DBL_MAX for no detection.
-      public: double GetRange(int index);
+      public: double GetRange(int _index);
 
       /// \brief Get all the ranges
-      /// \param _range A vector that will contain all the range data
+      /// \param _ranges A vector that will contain all the range data
       public: void GetRanges(std::vector<double> &_ranges);
 
       /// \brief Get detected retro (intensity) value for a ray.
       ///         Warning: If you are accessing all the ray data in a loop
       ///         it's possible that the Ray will update in the middle of
-      ///         your aceess loop. This means some data will come from one
+      ///         your access loop. This means some data will come from one
       ///         scan, and some from another scan. You can solve this
       ///         problem by using SetActive(false) <your accessor loop>
       ///         SetActive(true).
-      public: double GetRetro(int index);
+      /// \param[in] _index Index of specific ray
+      /// \return Retro (intensity) value for ray
+      public: double GetRetro(int _index);
 
       /// \brief Get detected fiducial value for a ray.
       ///         Warning: If you are accessing all the ray data in a loop
       ///         it's possible that the Ray will update in the middle of
-      ///         your aceess loop. This means some data will come from one
+      ///         your access loop. This means some data will come from one
       ///         scan, and some from another scan. You can solve this
       ///         problem by using SetActive(false) <your accessor loop>
       ///         SetActive(true).
-      public: int GetFiducial(int index);
+      /// \param[in] _index Index value of specific ray
+      /// \return Fiducial value
+      public: int GetFiducial(int _index);
 
       /// \brief Returns a pointer to the internal physics::MultiRayShape
+      /// \return Pointer to ray shape
       public: physics::MultiRayShapePtr GetLaserShape() const
               {return this->laserShape;}
 

@@ -12,6 +12,7 @@ set (sources
   Collision.cc
   CollisionState.cc
   Contact.cc
+  ContactManager.cc
   CylinderShape.cc
   Entity.cc
   Gripper.cc
@@ -58,7 +59,7 @@ set (headers
   Gripper.hh
   Joint.hh
   JointController.hh
-  JointFeedback.hh
+  JointWrench.hh
   JointState.hh
   Link.hh
   LinkState.hh
@@ -119,4 +120,4 @@ target_link_libraries(gzphysics gazebo_common
 
 gz_install_executable( gzphysics )
 gz_install_library(gazebo_physics)
-gz_install_includes("physics" ${headers} ${CMAKE_CURRENT_BINARY_DIR}/physics.hh physics.h)
+gz_install_includes("physics" ${headers} ${CMAKE_CURRENT_BINARY_DIR}/physics.hh)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * Date: 03 Apr 2007
  */
 
-#ifndef POSE_HH
-#define POSE_HH
+#ifndef _POSE_HH_
+#define _POSE_HH_
 
 #include <iostream>
 
@@ -34,23 +34,33 @@ namespace gazebo
     /// \addtogroup gazebo_math
     /// \{
 
+    /// \class Pose Pose.hh math/gzmath.hh
     /// \brief Encapsulates a position and rotation in three space
     class Pose
     {
+      /// \brief math::Pose(0, 0, 0, 0, 0, 0)
+      public: static const Pose Zero;
+
       /// \brief Default constructors
       public: Pose();
 
       /// \brief Constructor
-      /// \param pos A position
-      /// \param rot A rotation
+      /// \param[in] _pos A position
+      /// \param[in] _rot A rotation
       public: Pose(const Vector3 &_pos, const Quaternion &_rot);
 
       /// \brief Constructor
+      /// \param[in] _x x position in meters.
+      /// \param[in] _y y position in meters.
+      /// \param[in] _z z position in meters.
+      /// \param[in] _roll Roll (rotation about X-axis) in radians.
+      /// \param[in] _pitch Pitch (rotation about y-axis) in radians.
+      /// \param[in] _yaw Yaw (rotation about z-axis) in radians.
       public: Pose(double _x, double _y, double _z,
                    double _roll, double _pitch, double _yaw);
 
       /// \brief Copy constructor
-      /// \param pose Pose to copy
+      /// \param[in] _pose Pose to copy
       public: Pose(const Pose &_pose);
 
       /// \brief Destructor
@@ -82,20 +92,21 @@ namespace gazebo
               }
 
       /// \brief Get the inverse of this pose
+      /// \return the inverse pose
       public: Pose GetInverse() const;
 
       /// \brief Addition operator
-      /// \param pose Pose to add to this pose
+      /// \param[in] _pose Pose to add to this pose
       /// \return The resulting pose
-      public: Pose operator+(const Pose &pose) const;
+      public: Pose operator+(const Pose &_pose) const;
 
       /// \brief Add-Equals operator
-      /// \param pose Pose to add to this pose
+      /// \param[in] _pose Pose to add to this pose
       /// \return The resulting pose
-      public: const Pose &operator+=(const Pose &pose);
+      public: const Pose &operator+=(const Pose &_pose);
 
       /// \brief Subtraction operator
-      /// \param pose Pose to subtract from this one
+      /// \param[in] _pose Pose to subtract from this one
       /// \return The resulting pose
       public: inline Pose operator-(const Pose &_pose) const
               {
@@ -104,35 +115,37 @@ namespace gazebo
               }
 
       /// \brief Subtraction operator
-      /// \param pose Pose to subtract from this one
+      /// \param[in] _pose Pose to subtract from this one
       /// \return The resulting pose
       public: const Pose &operator-=(const Pose &_pose);
 
       /// \brief Equality operator
-      /// \param _pose Pose for comparison
+      /// \param[in] _pose Pose for comparison
       /// \return True if equal
       public: bool operator ==(const Pose &_pose) const;
 
       /// \brief Inequality operator
-      /// \param _pose Pose for comparison
+      /// \param[in] _pose Pose for comparison
       /// \return True if not equal
       public: bool operator!=(const Pose &_pose) const;
 
       /// \brief Multiplication operator
-      public: Pose operator*(const Pose &pose);
+      /// \param[in] _pose the other pose
+      /// \return itself
+      public: Pose operator*(const Pose &_pose);
 
       /// \brief Add one point to a vector: result = this + pos
-      /// \param pos Position to add to this pose
-      /// \return The resulting position
+      /// \param[in] _pos Position to add to this pose
+      /// \return the resulting position
       public: Vector3 CoordPositionAdd(const Vector3 &_pos) const;
 
       /// \brief Add one point to another: result = this + pose
-      /// \param pose The Pose to add
+      /// \param[in] _pose The Pose to add
       /// \return The resulting position
       public: Vector3 CoordPositionAdd(const Pose &_pose) const;
 
       /// \brief Subtract one position from another: result = this - pose
-      /// \param pose Pose to subtract
+      /// \param[in] _pose Pose to subtract
       /// \return The resulting position
       public: inline Vector3 CoordPositionSub(const Pose &_pose) const
               {
@@ -146,12 +159,12 @@ namespace gazebo
               }
 
       /// \brief Add one rotation to another: result =  this->rot + rot
-      /// \param rot Rotation to add
+      /// \param[in] _rot Rotation to add
       /// \return The resulting rotation
       public: Quaternion CoordRotationAdd(const Quaternion &_rot) const;
 
       /// \brief Subtract one rotation from another: result = this->rot - rot
-      /// \param rot The rotation to subtract
+      /// \param[in] _rot The rotation to subtract
       /// \return The resulting rotation
       public: inline Quaternion CoordRotationSub(const Quaternion &_rot) const
               {
@@ -163,15 +176,19 @@ namespace gazebo
 
       /// \brief Find the inverse of a pose; i.e., if b = this + a, given b and
       ///        this, find a
+      /// \param[in] _b the other pose
       public: Pose CoordPoseSolve(const Pose &_b) const;
 
       /// \brief Reset the pose
       public: void Reset();
 
       /// \brief Rotate vector part of a pose about the origin
+      /// \param[in] _rot rotation
+      /// \return the rotated pose
       public: Pose RotatePositionAboutOrigin(const Quaternion &_rot) const;
 
       /// \brief Round all values to _precision decimal places
+      /// \param[in] _precision
       public: void Round(int _precision);
 
       /// \brief The position
@@ -180,10 +197,10 @@ namespace gazebo
       /// \brief The rotation
       public: Quaternion rot;
 
-      /// \brief Ostream operator
-      /// \param out Ostream
-      /// \param pose Pose to output
-      /// \return the Ostream
+      /// \brief Stream insertion operator
+      /// \param[in] _out output stream
+      /// \param[in] _pose pose to output
+      /// \return the stream
       public: friend std::ostream &operator<<(std::ostream &_out,
                                               const gazebo::math::Pose &_pose)
               {
@@ -191,7 +208,11 @@ namespace gazebo
                 return _out;
               }
 
-    public: friend std::istream &operator>>(std::istream &_in,
+      /// \brief Stream extraction operator
+      /// \param[in] _in the input stream
+      /// \param[in] _pose the pose
+      /// \return the stream
+      public: friend std::istream &operator>>(std::istream &_in,
                 gazebo::math::Pose &_pose)
             {
               // Skip white spaces
@@ -204,7 +225,3 @@ namespace gazebo
   }
 }
 #endif
-
-
-
-

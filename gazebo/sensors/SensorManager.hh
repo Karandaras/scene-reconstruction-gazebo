@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 #define _SENSORMANAGER_HH_
 
 #include <boost/thread.hpp>
-#include <list>
 #include <string>
 #include <vector>
 
@@ -34,11 +33,13 @@
 
 namespace gazebo
 {
+  /// \ingroup gazebo_sensors
+  /// \brief Sensors namespace
   namespace sensors
   {
     /// \addtogroup gazebo_sensors
     /// \{
-
+    /// \class SensorManager SensorManager.hh sensors/sensors.hh
     /// \brief Class to manage and update all sensors
     class SensorManager : public SingletonT<SensorManager>
     {
@@ -53,7 +54,8 @@ namespace gazebo
       ///
       /// Checks to see if any sensor need to be initialized first,
       /// then updates all sensors once.
-      public: void Update(bool force = false);
+      /// \param[in] _force True force update, false if not
+      public: void Update(bool _force = false);
 
       /// \brief Init all the sensors
       public: void Init();
@@ -87,6 +89,10 @@ namespace gazebo
       /// \return A pointer to the sensor. NULL if not found.
       public: SensorPtr GetSensor(const std::string &_name);
 
+      /// \brief Get all the sensors.
+      /// \return Vector of all the sensors.
+      public: Sensor_V GetSensors() const;
+
       /// \brief Remove a sensor
       /// \param[in] _name The name of the sensor to remove.
       public: void RemoveSensor(const std::string &_name);
@@ -115,10 +121,10 @@ namespace gazebo
       private: boost::recursive_mutex mutex;
 
       /// \brief The list of initialized sensors.
-      private: std::list<SensorPtr> sensors;
+      private: Sensor_V sensors;
 
       /// \brief List of sensors that require initialization.
-      private: std::list<SensorPtr> initSensors;
+      private: Sensor_V initSensors;
 
       /// \brief This is a singleton class.
       private: friend class SingletonT<SensorManager>;

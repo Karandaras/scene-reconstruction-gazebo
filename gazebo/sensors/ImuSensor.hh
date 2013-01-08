@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,14 @@
  *
 */
 
-#ifndef IMUSENSOR_HH
-#define IMUSENSOR_HH
+#ifndef _IMUSENSOR_HH_
+#define _IMUSENSOR_HH_
 
 #include <vector>
 #include <string>
 
-#include "Sensor.hh"
+#include "gazebo/physics/PhysicsTypes.hh"
+#include "gazebo/sensors/Sensor.hh"
 
 namespace gazebo
 {
@@ -30,42 +31,44 @@ namespace gazebo
     /// \addtogroup gazebo_sensors
     /// \{
 
-    /// \brief An IMU sensor
+    /// \class ImuSensor ImuSensor.hh sensors/sensors.hh
+    /// \brief An IMU sensor.
     class ImuSensor: public Sensor
     {
-      /// \brief Constructor
-      /// \param body The IMU sensor must be attached to a body.
-      public: ImuSensor(Body *body);
+      /// \brief Constructor.
+      public: ImuSensor();
 
-      /// \brief Destructor
+      /// \brief Destructor.
       public: virtual ~ImuSensor();
 
-      /// \param node The XMLConfig node
-      protected: virtual void LoadChild(XMLConfigNode *node);
+      // Documentation inherited.
+      protected: void Load(const std::string &_worldName, sdf::ElementPtr _sdf);
 
-      /// \brief Save the sensor info in XML format
-      protected: virtual void SaveChild(std::string &prefix,
-                                        std::ostream &stream);
+      // Documentation inherited.
+      protected: virtual void Load(const std::string &_worldName);
 
-      /// Initialize the ray
-      protected: virtual void InitChild();
+      /// \brief Initialize the IMU.
+      protected: virtual void Init();
 
-      ///  Update sensed values
-      protected: virtual void UpdateChild();
+      // Documentation inherited
+      protected: virtual void UpdateImpl(bool _force);
 
-      /// Finalize the ray
-      protected: virtual void FiniChild();
+      // Documentation inherited
+      protected: virtual void Fini();
 
-      /// Returns velocity as a math::Pose
-      /// FIXME storing x,y,z components in a quaternion seems like a bad idea
-      /// @todo storing x,y,z components in a quaternion seems like a bad idea
-      public: Pose GetVelocity();
+      /// \brief Returns the angular velocity.
+      /// \return Angular velocity.
+      public: math::Vector3 GetAngularVelocity() const;
 
-      private: Pose prevPose;
-      private: Pose imuVel;
+      /// \brief Returns the linear acceleration.
+      /// \return Linear acceleration.
+      public: math::Vector3 GetLinearAcceleration() const;
+
+      private: transport::PublisherPtr pub;
+      private: physics::LinkPtr parentEntity;
+      private: msgs::IMU imuMsg;
     };
     /// \}
   }
 }
 #endif
-

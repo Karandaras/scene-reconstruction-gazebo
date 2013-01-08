@@ -56,9 +56,13 @@ void Node::Fini()
 /////////////////////////////////////////////////
 void Node::Init(const std::string &_space)
 {
-  // Cleanup first. This handles the case of calling Init twice on the same
-  // node.
-  this->Fini();
+  // Don't initialize twice.
+  if (this->initialized)
+  {
+    gzerr << "Node is already initialized, skipping Init."
+          << "This shouldn't happen...so fix it.\n";
+    return;
+  }
 
   this->topicNamespace = _space;
 

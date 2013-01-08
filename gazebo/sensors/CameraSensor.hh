@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,15 +31,14 @@
 
 namespace gazebo
 {
-  /// \ingroup gazebo_sensors
-  /// \brief Sensors namespace
   namespace sensors
   {
     /// \addtogroup gazebo_sensors Sensors
-    /// \brief A set of sensor classes, functions, and definitions
     /// \{
 
+    /// \class CameraSensor CameraSensor.hh sensors/sensors.hh
     /// \brief Basic camera sensor
+    ///
     /// This sensor is used for simulating standard monocular cameras
     class CameraSensor : public Sensor
     {
@@ -50,46 +49,54 @@ namespace gazebo
       public: virtual ~CameraSensor();
 
       /// \brief Set the parent of the sensor
+      /// \param _name The name of the parent
       public: virtual void SetParent(const std::string &_name);
 
-      /// \brief Load the camera using parameter from an SDF element
-      /// \param _sdf The SDF parameters
+      /// \brief Load the sensor with SDF parameters
+      /// \param[in] _sdf SDF Sensor parameters
+      /// \param[in] _worldName Name of world to load from
       public: virtual void Load(const std::string &_worldName,
                                 sdf::ElementPtr _sdf);
 
-      /// \brief Load the camera using default parameters
+      /// \brief Load the sensor with default parameters
+      /// \param[in] _worldName Name of world to load from
       public: virtual void Load(const std::string &_worldName);
 
       /// \brief Initialize the camera
       public: virtual void Init();
 
-      /// \brief Returns the name of the camera image topic.
+      /// \brief Gets the topic name of the sensor
+      /// \return Topic name
       /// @todo to be implemented
       public: virtual std::string GetTopic() const;
 
       /// \brief Update the sensor information
+      /// \param[in] _force True if update is forced, false if not
       protected: virtual void UpdateImpl(bool _force);
 
-      /// Finalize the camera
+      /// \brief Finalize the camera
       protected: virtual void Fini();
 
-      /// \brief Set whether the sensor is active or not
-      public: virtual void SetActive(bool value);
-
-      /// \brief Returns a pointer to the rendering::Camera
+      /// \brief Returns a pointer to the rendering::Camera.
+      /// \return The Pointer to the camera sensor.
       public: rendering::CameraPtr GetCamera() const
               {return this->camera;}
 
-      /// \brief returns the pixel width of an image as an unsigned int
+      /// \brief Gets the width of the image in pixels.
+      /// \return The image width in pixels.
       public: unsigned int GetImageWidth() const;
 
-      /// \brief returns the pixel height of an image as an unsigned int
+      /// \brief Gets the height of the image in pixels.
+      /// \return The image height in pixels.
       public: unsigned int GetImageHeight() const;
 
-      /// \brief returns pixels of an image as an array of unsigned char
+      /// \brief Gets the raw image data from the sensor.
+      /// \return The pointer to the image data array.
       public: const unsigned char *GetImageData();
 
-      /// \brief save the image frame to file named _filename.
+      /// \brief Saves the image to the disk.
+      /// \param[in] _filename The name of the file to be saved.
+      /// \return True if successful, false if unsuccessful.
       public: bool SaveFrame(const std::string &_filename);
 
       private: rendering::CameraPtr camera;

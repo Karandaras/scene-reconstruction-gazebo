@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,10 @@
 
 #include <string>
 
-#include "rendering/ViewController.hh"
-#include "math/Vector3.hh"
-#include "math/Vector2i.hh"
+#include "gazebo/rendering/Visual.hh"
+#include "gazebo/rendering/ViewController.hh"
+#include "gazebo/math/Vector3.hh"
+#include "gazebo/math/Vector2i.hh"
 
 namespace gazebo
 {
@@ -77,16 +78,26 @@ namespace gazebo
       public: math::Vector3 GetFocalPoint() const;
 
       /// \brief Set the yaw angle of the camera.
-      /// \param[in] Yaw angle in radians
+      /// \param[in] _yaw angle in radians
       public: void SetYaw(double _yaw);
 
       /// \brief Set the pitch angle of the camera.
-      /// \param[in] Pitch angle in radians.
+      /// \param[in] _pitch Pitch angle in radians.
       public: void SetPitch(double _pitch);
 
-      /// \brief Translate the focal point.
+      // Documentation inherited from parent
+      public: void HandleKeyReleaseEvent(const std::string &_key);
+
+      // Documentation inherited from parent
+      public: virtual void HandleKeyPressEvent(const std::string &_key);
+
+      /// \brief Translate the focal point in the local coordinate frame.
       /// \param[in] _vec Direction and amount to translate the camera.
-      private: void Translate(math::Vector3 _vec);
+      private: void TranslateLocal(math::Vector3 _vec);
+
+      /// \brief Translate the focal point in the global coordinate frame.
+      /// \param[in] _vec Direction and amount to translate the camera.
+      private: void TranslateGlobal(math::Vector3 _vec);
 
       /// \brief Zoom the camera.
       /// \paramp[in] _amount Zoom quatity.
@@ -111,6 +122,8 @@ namespace gazebo
       private: VisualPtr refVisual;
       private: math::Vector2i posCache;
       private: math::Vector3 worldFocal;
+
+      private: std::string key;
     };
     /// \}
   }

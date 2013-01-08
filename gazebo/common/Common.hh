@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@ namespace gazebo
     /// \param[in] _file Name of the file to find.
     /// \param[in] _searchLocalPath True to search in the current working
     /// directory.
-    std::string find_file(const std::string &_file, bool _searchLocalPath=true);
+    std::string find_file(const std::string &_file,
+                          bool _searchLocalPath = true);
 
     /// \brief search for a file in common::SystemPaths
     /// \param[in] _file the file name to look for

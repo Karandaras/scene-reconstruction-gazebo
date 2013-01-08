@@ -20,18 +20,16 @@
  */
 #define BOOST_FILESYSTEM_VERSION 2
 
-#include <boost/filesystem.hpp>
-
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <GL/glx.h>
 
-#include <stdint.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <string.h>
-
+#include <string>
 #include <iostream>
+
+#include <boost/filesystem.hpp>
 
 #include "rendering/ogre_gazebo.h"
 
@@ -696,18 +694,23 @@ void RenderEngine::CheckSystemCapabilities()
   bool hasGLSL =
     std::find(profiles.begin(), profiles.end(), "glsl") != profiles.end();
 
-  if (!hasGLSL || !hasFBO)
-  {
-    gzerr << "Your machine does not meet the minimal rendering requirements.\n";
-    if (!hasGLSL)
-      gzerr << "   GLSL is missing.\n";
-    if (!hasFBO)
-      gzerr << "   Frame Buffer Objects (FBO) is missing.\n";
-  }
+  if (!hasFragmentPrograms || !hasVertexPrograms)
+    gzwarn << "Vertex and fragment shaders are missing. "
+           << "Fixed function rendering will be used.\n";
 
-  if (hasVertexPrograms && hasFragmentPrograms)
+  if (!hasGLSL)
+    gzwarn << "GLSL is missing."
+           << "Fixed function rendering will be used.\n";
+
+  if (!hasFBO)
+    gzwarn << "Frame Buffer Objects (FBO) is missing. "
+           << "Rendering will be disabled.\n";
+
+  this->renderPathType = RenderEngine::NONE;
+
+  if (hasFBO && hasGLSL && hasVertexPrograms && hasFragmentPrograms)
     this->renderPathType = RenderEngine::FORWARD;
-  else
+  else if (hasFBO)
     this->renderPathType = RenderEngine::VERTEX;
 
   // Disable deferred rendering for now. Needs more work.

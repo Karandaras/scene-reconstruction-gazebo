@@ -38,7 +38,8 @@ void help()
   std::cout << " debugging and as a conversion tool.\n\n";
 }
 
-bool file_exists(const std::string _filename)
+/////////////////////////////////////////////////
+bool file_exists(const std::string &_filename)
 {
   struct stat st;
   return stat(_filename.c_str(), &st) == 0;
@@ -118,8 +119,7 @@ int main(int argc, char** argv)
     TiXmlDocument xmlDoc;
     if (xmlDoc.LoadFile(params[1]))
     {
-      TiXmlElement *gazeboNode = xmlDoc.FirstChildElement("gazebo");
-      sdf::Converter::Convert(gazeboNode, SDF::version, true);
+      sdf::Converter::Convert(&xmlDoc, SDF::version, true);
       xmlDoc.SaveFile(params[1]);
     }
     else

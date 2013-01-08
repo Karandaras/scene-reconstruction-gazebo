@@ -833,7 +833,7 @@ material drc/san_fauxcity_sign
   }
 }
 
-material SceneReconstruction/Object : Gazebo/BlueGlow
+material SceneReconstruction/Object
 {
   receive_shadows off
 
@@ -845,12 +845,15 @@ material SceneReconstruction/Object : Gazebo/BlueGlow
       depth_write off
       cull_hardware none
 
+      ambient 0.0 0.0 1.0 0.7
+      diffuse 0.0 0.0 1.0 0.7
+
       point_size 5 
     }
   }
 }
 
-material SceneReconstruction/PointCloud : Gazebo/GreenTransparent
+material SceneReconstruction/PointCloud
 {
   receive_shadows off
 
@@ -861,6 +864,9 @@ material SceneReconstruction/PointCloud : Gazebo/GreenTransparent
       scene_blend alpha_blend
       depth_write off
       cull_hardware none
+
+      ambient 0.0 1.0 0.0 0.5
+      diffuse 0.0 1.0 0.0 0.5
 
       point_size 1
 		}
@@ -879,8 +885,8 @@ material SceneReconstruction/Laser
       depth_write off
       cull_hardware none
 
-      ambient 1.0 0.0 0.0 1
-      diffuse 1.0 0.0 0.0 1
+      ambient 1.0 0.0 0.0 0.7
+      diffuse 1.0 0.0 0.0 0.7
 
       texture_unit
       {
@@ -891,3 +897,4 @@ material SceneReconstruction/Laser
     }
   }
 }
+

@@ -336,32 +336,56 @@ void Link::UpdateParameters(sdf::ElementPtr _sdf)
 }
 
 //////////////////////////////////////////////////
-void Link::SetCollideMode(const std::string & /*m*/)
+void Link::SetCollideMode(const std::string &_mode)
 {
-  /*TODO: Put this back in
-  Base_V::iterator giter;
-
+  unsigned int categoryBits;
   unsigned int collideBits;
 
-  if (m == "all")
+  if (_mode == "all")
+  {
+    categoryBits =  GZ_ALL_COLLIDE;
     collideBits =  GZ_ALL_COLLIDE;
-  else if (m == "none")
+  }
+  else if (_mode == "none")
+  {
+    categoryBits =  GZ_NONE_COLLIDE;
     collideBits =  GZ_NONE_COLLIDE;
-  else if (m == "sensors")
-    collideBits = GZ_SENSOR_COLLIDE;
-  else if (m == "ghost")
-    collideBits = GZ_GHOST_COLLIDE;
+  }
+  else if (_mode == "sensors")
+  {
+    categoryBits = GZ_SENSOR_COLLIDE;
+    collideBits = ~GZ_SENSOR_COLLIDE;
+  }
+  else if (_mode == "fixed")
+  {
+    categoryBits = GZ_FIXED_COLLIDE;
+    collideBits = ~GZ_FIXED_COLLIDE;
+  }
+  else if (_mode == "ghost")
+  {
+    categoryBits = GZ_GHOST_COLLIDE;
+    collideBits = ~GZ_GHOST_COLLIDE;
+  }
   else
   {
-    gzerr << "Unknown collide mode[" << m << "]\n";
+    gzerr << "Unknown collide mode[" << _mode << "]\n";
     return;
   }
 
-  for (giter = this->collisions.begin(); giter != this->collisions.end(); giter++)
+  for (Base_V::iterator iter = this->children.begin();
+       iter != this->children.end(); ++iter)
   {
-    (*giter)->SetCategoryBits(collideBits);
-    (*giter)->SetCollideBits(collideBits);
-  }*/
+    if ((*iter)->HasType(Base::COLLISION))
+    {
+      physics::CollisionPtr pc =
+        boost::dynamic_pointer_cast<physics::Collision>(*iter);
+      if (pc)
+      {
+        pc->SetCategoryBits(categoryBits);
+        pc->SetCollideBits(collideBits);
+      }
+    }
+  }
 }
 
 //////////////////////////////////////////////////
@@ -470,6 +494,22 @@ CollisionPtr Link::GetCollision(const std::string &_name)
 }
 
 //////////////////////////////////////////////////
+Collision_V Link::GetCollisions() const
+{
+  Collision_V result;
+  Base_V::const_iterator biter;
+  for (biter = this->children.begin(); biter != this->children.end(); ++biter)
+  {
+    if ((*biter)->HasType(Base::COLLISION))
+    {
+      result.push_back(boost::shared_static_cast<Collision>(*biter));
+    }
+  }
+
+  return result;
+}
+
+//////////////////////////////////////////////////
 CollisionPtr Link::GetCollision(unsigned int _index) const
 {
   CollisionPtr collision;
@@ -506,7 +546,7 @@ math::Vector3 Link::GetRelativeLinearVel() const
 math::Vector3 Link::GetRelativeAngularVel() const
 {
   return this->GetWorldPose().rot.RotateVectorReverse(
-      this->GetWorldAngularVel());
+         this->GetWorldAngularVel());
 }
 
 //////////////////////////////////////////////////
@@ -633,6 +673,12 @@ void Link::RemoveChildJoint(JointPtr _joint)
 //////////////////////////////////////////////////
 void Link::FillLinkMsg(msgs::Link &_msg)
 {
+  this->FillMsg(_msg);
+}
+
+//////////////////////////////////////////////////
+void Link::FillMsg(msgs::Link &_msg)
+{
   _msg.set_id(this->GetId());
   _msg.set_name(this->GetScopedName());
   _msg.set_self_collide(this->GetSelfCollide());
@@ -659,7 +705,7 @@ void Link::FillLinkMsg(msgs::Link &_msg)
     {
       CollisionPtr coll = boost::shared_dynamic_cast<Collision>(
           this->GetChild(j));
-      coll->FillCollisionMsg(*_msg.add_collision());
+      coll->FillMsg(*_msg.add_collision());
     }
   }
 
@@ -809,16 +855,11 @@ void Link::OnPoseChange()
 }
 
 //////////////////////////////////////////////////
-LinkState Link::GetState()
+void Link::SetState(const LinkState & /*_state*/)
 {
-  return LinkState(boost::shared_static_cast<Link>(shared_from_this()));
-}
+  // this->SetRelativePose(_state.GetPose());
 
-//////////////////////////////////////////////////
-void Link::SetState(const LinkState &_state)
-{
-  this->SetRelativePose(_state.GetPose());
-
+  /*
   for (unsigned int i = 0; i < _state.GetCollisionStateCount(); ++i)
   {
     CollisionState collisionState = _state.GetCollisionState(i);
@@ -827,14 +868,14 @@ void Link::SetState(const LinkState &_state)
       collision->SetState(collisionState);
     else
       gzerr << "Unable to find collision[" << collisionState.GetName() << "]\n";
-  }
+  }*/
 }
 
 /////////////////////////////////////////////////
 double Link::GetLinearDamping() const
 {
-  if (this->sdf->HasElement("damping"))
-    return this->sdf->GetElement("damping")->GetValueDouble("linear");
+  if (this->sdf->HasElement("velocity_decay"))
+    return this->sdf->GetElement("velocity_decay")->GetValueDouble("linear");
   else
     return 0.0;
 }
@@ -842,8 +883,13 @@ double Link::GetLinearDamping() const
 /////////////////////////////////////////////////
 double Link::GetAngularDamping() const
 {
-  if (this->sdf->HasElement("damping"))
-    return this->sdf->GetElement("damping")->GetValueDouble("angular");
+  if (this->sdf->HasElement("velocity_decay"))
+    return this->sdf->GetElement("velocity_decay")->GetValueDouble("angular");
   else
     return 0.0;
+}
+
+/////////////////////////////////////////////////
+void Link::SetKinematic(const bool &/*_kinematic*/)
+{
 }

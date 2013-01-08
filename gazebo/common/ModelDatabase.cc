@@ -30,14 +30,16 @@
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 
-#include "common/SystemPaths.hh"
-#include "common/Console.hh"
-#include "common/ModelDatabase.hh"
+#include "gazebo/sdf/sdf.hh"
+#include "gazebo/common/Time.hh"
+#include "gazebo/common/SystemPaths.hh"
+#include "gazebo/common/Console.hh"
+#include "gazebo/common/ModelDatabase.hh"
 
 using namespace gazebo;
 using namespace common;
 
-std::map<std::string, std::string> ModelDatabase::modelCache;
+ModelDatabase *ModelDatabase::myself = ModelDatabase::Instance();
 
 /////////////////////////////////////////////////
 size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream)
@@ -56,6 +58,28 @@ size_t get_models_cb(void *_buffer, size_t _size, size_t _nmemb, void *_userp)
   // Append the new character data to the string
   str->append(static_cast<const char*>(_buffer), _size);
   return _size;
+}
+
+/////////////////////////////////////////////////
+ModelDatabase::ModelDatabase()
+{
+  this->stop = false;
+
+  // Create the thread that is used to update the model cache. This
+  // retreives online data in the background to improve startup times.
+  this->updateCacheThread = new boost::thread(
+      boost::bind(&ModelDatabase::UpdateModelCache, this));
+}
+
+/////////////////////////////////////////////////
+ModelDatabase::~ModelDatabase()
+{
+  // Stop the update thread.
+  this->stop = true;
+  this->updateCacheCondition.notify_one();
+  this->updateCacheThread->join();
+
+  delete this->updateCacheThread;
 }
 
 /////////////////////////////////////////////////
@@ -120,12 +144,10 @@ std::string ModelDatabase::GetManifest(const std::string &_uri)
   return xmlString;
 }
 
-/////////////////////////////////////////////////
-std::map<std::string, std::string> ModelDatabase::GetModels()
-{
-  if (modelCache.size() != 0)
-    return modelCache;
 
+/////////////////////////////////////////////////
+bool ModelDatabase::UpdateModelCacheImpl()
+{
   std::string xmlString = ModelDatabase::GetManifest(ModelDatabase::GetURI());
 
   if (!xmlString.empty())
@@ -137,21 +159,21 @@ std::map<std::string, std::string> ModelDatabase::GetModels()
     if (!databaseElem)
     {
       gzerr << "No <database> tag in the model database manifest.xml found"
-            << " here[" << ModelDatabase::GetURI() << "]\n";
-      return modelCache;
+        << " here[" << ModelDatabase::GetURI() << "]\n";
+      return false;
     }
 
     TiXmlElement *modelsElem = databaseElem->FirstChildElement("models");
     if (!modelsElem)
     {
       gzerr << "No <models> tag in the model database manifest.xml found"
-            << " here[" << ModelDatabase::GetURI() << "]\n";
-      return modelCache;
+        << " here[" << ModelDatabase::GetURI() << "]\n";
+      return false;
     }
 
     TiXmlElement *uriElem;
     for (uriElem = modelsElem->FirstChildElement("uri"); uriElem != NULL;
-         uriElem = uriElem->NextSiblingElement("uri"))
+        uriElem = uriElem->NextSiblingElement("uri"))
     {
       std::string uri = uriElem->GetText();
 
@@ -165,11 +187,78 @@ std::map<std::string, std::string> ModelDatabase::GetModels()
       std::string fullURI = ModelDatabase::GetURI() + suffix;
       std::string modelName = ModelDatabase::GetModelName(fullURI);
 
-      modelCache[fullURI] = modelName;
+      this->modelCache[fullURI] = modelName;
     }
   }
 
-  return modelCache;
+  return true;
+}
+
+/////////////////////////////////////////////////
+void ModelDatabase::UpdateModelCache()
+{
+  // Continually update the model cache when requested.
+  while (!this->stop)
+  {
+    // Wait for an update request.
+    boost::mutex::scoped_lock lock(this->updateMutex);
+    this->updateCacheCondition.wait(lock);
+
+    // Exit if notified and stopped.
+    if (this->stop)
+      break;
+
+    // Update the model cache.
+    if (!this->UpdateModelCacheImpl())
+      gzerr << "Unable to download model manifests\n";
+    else
+    {
+      for (std::list<CallbackFunc>::iterator iter = this->callbacks.begin();
+           iter != this->callbacks.end(); ++iter)
+      {
+        (*iter)(this->modelCache);
+      }
+      this->callbacks.clear();
+    }
+  }
+}
+
+/////////////////////////////////////////////////
+std::map<std::string, std::string> ModelDatabase::GetModels()
+{
+  size_t size = 0;
+
+  {
+    boost::mutex::scoped_lock lock(this->updateMutex);
+    size = this->modelCache.size();
+  }
+
+  if (size != 0)
+    return this->modelCache;
+  else
+  {
+    gzwarn << "Getting models from[" << GetURI()
+           << "]. This may take a few seconds.\n";
+
+    // Tell the background thread to grab the models from online.
+    this->updateCacheCondition.notify_one();
+
+    // Let the other thread start downloading.
+    common::Time::MSleep(100);
+
+    // Wait for the thread to finish.
+    boost::mutex::scoped_lock lock(this->updateMutex);
+  }
+
+  return this->modelCache;
+}
+
+/////////////////////////////////////////////////
+void ModelDatabase::GetModels(
+    boost::function<void (const std::map<std::string, std::string> &)> _func)
+{
+  this->callbacks.push_back(_func);
+  this->updateCacheCondition.notify_one();
 }
 
 /////////////////////////////////////////////////
@@ -334,8 +423,8 @@ void ModelDatabase::DownloadDependencies(const std::string &_path)
     if (!dependXML)
       return;
 
-    for(TiXmlElement *depXML = dependXML->FirstChildElement("model");
-        depXML; depXML = depXML->NextSiblingElement())
+    for (TiXmlElement *depXML = dependXML->FirstChildElement("model");
+         depXML; depXML = depXML->NextSiblingElement())
     {
       TiXmlElement *uriXML = depXML->FirstChildElement("uri");
       if (uriXML)
@@ -371,6 +460,21 @@ std::string ModelDatabase::GetModelFile(const std::string &_uri)
     if (modelXML)
     {
       TiXmlElement *sdfXML = modelXML->FirstChildElement("sdf");
+      TiXmlElement *sdfSearch = sdfXML;
+
+      // Find the SDF element that matches our current SDF version.
+      while (sdfSearch)
+      {
+        if (sdfSearch->Attribute("version") &&
+            std::string(sdfSearch->Attribute("version")) == SDF_VERSION)
+        {
+          sdfXML = sdfSearch;
+          break;
+        }
+
+        sdfSearch = sdfSearch->NextSiblingElement("sdf");
+      }
+
       if (sdfXML)
       {
         result = path + "/" + sdfXML->GetText();

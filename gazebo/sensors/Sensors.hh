@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  *
 */
-#ifndef GAZEBO_SENSORS_HH
-#define GAZEBO_SENSORS_HH
+#ifndef _GAZEBO_SENSORS_HH_
+#define _GAZEBO_SENSORS_HH_
 
 #include <string>
 #include "sdf/sdf.hh"
@@ -28,25 +28,27 @@ namespace gazebo
     /// \addtogroup gazebo_sensors
     /// \{
 
-    /// \brief Load the sensor library
+    /// \brief Load the sensor library.
+    /// \return True if successfully loaded, false if not.
     bool load();
 
-    /// \brief Create a sensor using SDF
-    /// \param _elem The SDF element that describes the sensor
-    /// \param _worldName Name of the world in which to create the sensor
-    /// \param _parentName The fully scoped parent name (model::link)
-    /// \return The name of the new sensor
+    /// \brief Create a sensor using SDF.
+    /// \param[in] _elem The SDF element that describes the sensor.
+    /// \param[in] _worldName Name of the world in which to create the sensor.
+    /// \param[in] _parentName The fully scoped parent name (model::link).
+    /// \return The name of the new sensor.
     std::string create_sensor(sdf::ElementPtr _elem,
                               const std::string &_worldName,
                               const std::string &_parentName);
 
     /// \brief Remove a sensor by name
+    /// \param[in] _sensorName Name of sensor to remove
     void remove_sensor(const std::string &_sensorName);
 
     /// \brief Run the sensor generation one step.
-    /// \param force: If true, all sensors are forced to update. Otherwise
+    /// \param _force: If true, all sensors are forced to update. Otherwise
     ///        a sensor will update based on it's Hz rate.
-    void run_once(bool force = true);
+    void run_once(bool _force = false);
 
     /// \brief Run sensor generation continuously. This is a blocking call
     void run();
@@ -55,12 +57,15 @@ namespace gazebo
     void stop();
 
     /// \brief initialize the sensor generation loop.
+    /// \return True if successfully initialized, false if not
     bool init();
 
     /// \brief shutdown the sensor generation loop.
+    /// \return True if successfully finalized, false if not
     bool fini();
 
     /// \brief Remove all sensors.
+    /// \return True if all successfully removed, false if not
     bool remove_sensors();
 
     /// \brief Get a sensor using by name
@@ -75,8 +80,8 @@ namespace gazebo
     /// \return Pointer to the sensor, NULL if the sensor could not be
     /// found.
     SensorPtr get_sensor(const std::string &_name);
+
     /// \}
   }
 }
 #endif
-

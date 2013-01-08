@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * Date: 07 May 2007
  */
 
-#ifndef GAZEBO_EXCEPTION_HH
-#define GAZEBO_EXCEPTION_HH
+#ifndef _GAZEBO_EXCEPTION_HH_
+#define _GAZEBO_EXCEPTION_HH_
 
 #include <iostream>
 #include <sstream>
@@ -33,12 +33,13 @@ namespace gazebo
     /// \addtogroup gazebo_common
     /// \{
 
-    /// \brief This macro logs an error to the throw stream and throws an
-    /// exception that contains  the file name and line number.
+    /// \brief This macro logs an error to the throw stream and throws
+    /// an exception that contains the file name and line number.
     #define gzthrow(msg) {std::ostringstream throwStream;\
       throwStream << msg << std::endl << std::flush;\
       throw gazebo::common::Exception(__FILE__, __LINE__, throwStream.str()); }
 
+    /// \class Exception Exception.hh common/common.hh
     /// \brief Class for generating exceptions
     class Exception
     {
@@ -46,12 +47,12 @@ namespace gazebo
       public: Exception();
 
       /// \brief Default constructor
-      /// \param[in] file File name
-      /// \param[in] line Line number where the error occurred
-      /// \param[in] msg Error message
-      public: Exception(const char *file,
-                          int line,
-                          std::string msg);
+      /// \param[in] _file File name
+      /// \param[in] _line Line number where the error occurred
+      /// \param[in] _msg Error message
+      public: Exception(const char *_file,
+                          int _line,
+                          std::string _msg);
 
       /// \brief Destructor
       public: virtual ~Exception();
@@ -63,6 +64,9 @@ namespace gazebo
       /// \brief Return the error string
       /// \return The error string
       public: std::string GetErrorStr() const;
+
+      /// \brief Print the exception to std out.
+      public: void Print() const;
 
       /// \brief The error function
       private: std::string file;

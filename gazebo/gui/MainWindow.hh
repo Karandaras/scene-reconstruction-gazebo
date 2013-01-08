@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ namespace gazebo
   namespace gui
   {
     class RenderWidget;
-    class GLWidget;
+    class ToolsWidget;
 
     class ModelListWidget;
 
@@ -77,6 +77,7 @@ namespace gazebo
       private slots: void CreateDirectionalLight();
       private slots: void InsertModel();
       private slots: void ViewGrid();
+      private slots: void ViewContacts();
       private slots: void ViewReset();
       private slots: void ViewFullScreen();
       private slots: void ViewFPS();
@@ -95,7 +96,8 @@ namespace gazebo
       private: void OnResponse(ConstResponsePtr &_msg);
       private: void OnWorldModify(ConstWorldModifyPtr &_msg);
       private: void OnManipMode(const std::string &_mode);
-      private: void OnSetSelectedEntity(const std::string &_name);
+      private: void OnSetSelectedEntity(const std::string &_name,
+                                        const std::string &_mode);
       private: void OnStats(ConstWorldStatisticsPtr &_msg);
 
       private: QMenu *fileMenu;
@@ -105,6 +107,7 @@ namespace gazebo
       private: QToolBar *playToolbar;
 
       private: RenderWidget *renderWidget;
+      private: ToolsWidget *toolsWidget;
       private: ModelListWidget *modelListWidget;
 
       private: transport::NodePtr node;

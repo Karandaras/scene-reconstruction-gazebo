@@ -43,8 +43,6 @@
 #include "physics/Model.hh"
 #include "physics/Contact.hh"
 
-#include "sensors/SensorManager.hh"
-
 #include "transport/Node.hh"
 
 using namespace gazebo;
@@ -72,7 +70,6 @@ Model::Model(BasePtr _parent)
   this->AddType(MODEL);
   this->updateMutex = new boost::recursive_mutex();
   this->jointController = NULL;
-  this->pluginsLoaded = false;
 }
 
 //////////////////////////////////////////////////
@@ -95,28 +92,28 @@ void Model::Load(sdf::ElementPtr _sdf)
 
   this->SetAutoDisable(this->sdf->GetValueBool("allow_auto_disable"));
 
-  // TODO: check for duplicate model, and raise an error
-  // BasePtr dup = Base::GetByName(this->GetScopedName());
+  /// \TODO: check for duplicate model, and raise an error
+  /// BasePtr dup = Base::GetByName(this->GetScopedName());
 
   // Load the bodies
   if (_sdf->HasElement("link"))
   {
     sdf::ElementPtr linkElem = _sdf->GetElement("link");
-    bool canonical_link_initialized = false;
+    bool canonicalLinkInitialized = false;
     while (linkElem)
     {
       // Create a new link
       LinkPtr link = this->GetWorld()->GetPhysicsEngine()->CreateLink(
           boost::shared_static_cast<Model>(shared_from_this()));
 
-      // FIXME: canonical link is hardcoded to the first link.
-      //        warn users for now, need  to add parsing of
-      //        the canonical tag in sdf
-      if (!canonical_link_initialized)
+      /// \TODO: canonical link is hardcoded to the first link.
+      ///        warn users for now, need  to add parsing of
+      ///        the canonical tag in sdf
+      if (!canonicalLinkInitialized)
       {
         link->SetCanonicalLink(true);
         this->canonicalLink = link;
-        canonical_link_initialized = true;
+        canonicalLinkInitialized = true;
       }
 
       // Load the link using the config node. This also loads all of the
@@ -136,7 +133,7 @@ void Model::Load(sdf::ElementPtr _sdf)
       {
         this->LoadJoint(jointElem);
       }
-      catch (...)
+      catch(...)
       {
         gzerr << "LoadJoint Failed\n";
       }
@@ -193,16 +190,6 @@ void Model::Update()
 {
   this->updateMutex->lock();
 
-  /// Load plugins for this model once
-  /// @todo: john: this works fine, but we should add a regression test
-  /// to make sure there is no race condition.
-  if (!this->pluginsLoaded &&
-      sensors::SensorManager::Instance()->SensorsInitialized())
-  {
-    this->LoadPlugins();
-    this->pluginsLoaded = true;
-  }
-
   if (this->jointController)
     this->jointController->Update();
 
@@ -246,10 +233,10 @@ void Model::Update()
 }
 
 //////////////////////////////////////////////////
-void Model::SetJointPosition(std::string _joint_name, double _position)
+void Model::SetJointPosition(const std::string &_jointName, double _position)
 {
   if (this->jointController)
-    this->jointController->SetJointPosition(_joint_name, _position);
+    this->jointController->SetJointPosition(_jointName, _position);
 }
 
 //////////////////////////////////////////////////
@@ -533,6 +520,12 @@ unsigned int Model::GetJointCount() const
 }
 
 //////////////////////////////////////////////////
+const Joint_V &Model::GetJoints() const
+{
+  return this->joints;
+}
+
+//////////////////////////////////////////////////
 JointPtr Model::GetJoint(unsigned int _index) const
 {
   if (_index >= this->joints.size())
@@ -576,6 +569,12 @@ LinkPtr Model::GetLinkById(unsigned int _id) const
 
 //////////////////////////////////////////////////
 Link_V Model::GetAllLinks() const
+{
+  return this->GetLinks();
+}
+
+//////////////////////////////////////////////////
+Link_V Model::GetLinks() const
 {
   Link_V links;
   for (unsigned int i = 0; i < this->GetChildCount(); ++i)
@@ -652,7 +651,7 @@ void Model::LoadJoint(sdf::ElementPtr _sdf)
     gzthrow("can't have two joint with the same name");
 
   msgs::Joint msg;
-  joint->FillJointMsg(msg);
+  joint->FillMsg(msg);
   this->jointPub->Publish(msg);
 
   this->joints.push_back(joint);
@@ -685,6 +684,40 @@ void Model::LoadPlugins()
       pluginElem = pluginElem->GetNextElement("plugin");
     }
   }
+}
+
+//////////////////////////////////////////////////
+unsigned int Model::GetPluginCount() const
+{
+  unsigned int result = 0;
+
+  // Count all the plugins specified in SDF
+  if (this->sdf->HasElement("plugin"))
+  {
+    sdf::ElementPtr pluginElem = this->sdf->GetElement("plugin");
+    while (pluginElem)
+    {
+      result++;
+      pluginElem = pluginElem->GetNextElement("plugin");
+    }
+  }
+
+  return result;
+}
+
+//////////////////////////////////////////////////
+unsigned int Model::GetSensorCount() const
+{
+  unsigned int result = 0;
+
+  // Count all the sensors on all the links
+  Link_V links = this->GetLinks();
+  for (Link_V::const_iterator iter = links.begin(); iter != links.end(); ++iter)
+  {
+    result += (*iter)->GetSensorCount();
+  }
+
+  return result;
 }
 
 //////////////////////////////////////////////////
@@ -724,7 +757,6 @@ void Model::SetGravityMode(const bool &_v)
   }
 }
 
-
 //////////////////////////////////////////////////
 void Model::SetCollideMode(const std::string &_m)
 {
@@ -739,9 +771,8 @@ void Model::SetCollideMode(const std::string &_m)
   }
 }
 
-
 //////////////////////////////////////////////////
-void Model::SetLaserRetro(const float &_retro)
+void Model::SetLaserRetro(const float _retro)
 {
   Base_V::iterator iter;
 
@@ -757,6 +788,12 @@ void Model::SetLaserRetro(const float &_retro)
 //////////////////////////////////////////////////
 void Model::FillModelMsg(msgs::Model &_msg)
 {
+  this->FillMsg(_msg);
+}
+
+//////////////////////////////////////////////////
+void Model::FillMsg(msgs::Model &_msg)
+{
   _msg.set_name(this->GetScopedName());
   _msg.set_is_static(this->IsStatic());
   _msg.mutable_pose()->CopyFrom(msgs::Convert(this->GetWorldPose()));
@@ -770,12 +807,12 @@ void Model::FillModelMsg(msgs::Model &_msg)
     if (this->GetChild(j)->HasType(Base::LINK))
     {
       LinkPtr link = boost::shared_dynamic_cast<Link>(this->GetChild(j));
-      link->FillLinkMsg(*_msg.add_link());
+      link->FillMsg(*_msg.add_link());
     }
   }
 
   for (unsigned int j = 0; j < this->joints.size(); ++j)
-    this->joints[j]->FillJointMsg(*_msg.add_joint());
+    this->joints[j]->FillMsg(*_msg.add_joint());
 }
 
 //////////////////////////////////////////////////
@@ -874,17 +911,11 @@ void Model::OnPoseChange()
 }
 
 //////////////////////////////////////////////////
-ModelState Model::GetState()
-{
-  return ModelState(boost::shared_static_cast<Model>(shared_from_this()));
-}
-
-//////////////////////////////////////////////////
 void Model::SetState(const ModelState &_state)
 {
   this->SetWorldPose(_state.GetPose(), true);
 
-  for (unsigned int i = 0; i < _state.GetLinkStateCount(); ++i)
+  /*for (unsigned int i = 0; i < _state.GetLinkStateCount(); ++i)
   {
     LinkState linkState = _state.GetLinkState(i);
     LinkPtr link = this->GetLink(linkState.GetName());
@@ -892,16 +923,20 @@ void Model::SetState(const ModelState &_state)
       link->SetState(linkState);
     else
       gzerr << "Unable to find link[" << linkState.GetName() << "]\n";
-  }
+  }*/
 
   for (unsigned int i = 0; i < _state.GetJointStateCount(); ++i)
   {
     JointState jointState = _state.GetJointState(i);
-    JointPtr joint = this->GetJoint(jointState.GetName());
+    this->SetJointPosition(this->GetName() + "::" + jointState.GetName(),
+                           jointState.GetAngle(0).Radian());
+
+    /*JointPtr joint = this->GetJoint(jointState.GetName());
     if (joint)
       joint->SetState(jointState);
     else
       gzerr << "Unable to find joint[" << jointState.GetName() << "]\n";
+      */
   }
 }
 
@@ -946,5 +981,11 @@ void Model::SetAutoDisable(bool _auto)
   for (iter = this->children.begin(); iter != this->children.end(); ++iter)
     if (*iter && (*iter)->HasType(LINK))
       boost::static_pointer_cast<Link>(*iter)->SetAutoDisable(_auto);
+}
+
+/////////////////////////////////////////////////
+bool Model::GetAutoDisable() const
+{
+  return this->sdf->GetValueBool("allow_auto_disable");
 }
 

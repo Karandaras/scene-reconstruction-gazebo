@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ namespace gazebo
     /// \addtogroup gazebo_common
     /// \{
 
+    /// \class Animation Animation.hh common/common.hh
     /// \brief Manages an animation, which is a collection of keyframes and
     /// the ability to interpolate between the keyframes
     class Animation
@@ -180,7 +181,8 @@ namespace gazebo
       public: NumericKeyFrame *CreateKeyFrame(double _time);
 
       /// \brief Get a keyframe using the animation's current time.
-      /// \param[out] _kf NumericKeyFrame reference to hold the interpolated result
+      /// \param[out] _kf NumericKeyFrame reference to hold the
+      /// interpolated result
       public: void GetInterpolatedKeyFrame(NumericKeyFrame &_kf) const;
     };
     /// \}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ namespace gazebo
     /// \addtogroup gazebo_common
     /// \{
 
+    /// \class MouseEvent MouseEvent.hh common/common.hh
     /// \brief Generic description of a mouse event.
     class MouseEvent
     {
@@ -75,10 +76,9 @@ namespace gazebo
       /// \brief Shift key press flag.
       public: bool shift;
 
-
       /// \brief Alt key press flag.
       public: bool alt;
-     
+
       /// \brief Control key press flag.
       public: bool control;
     };
@@ -86,5 +86,3 @@ namespace gazebo
   }
 }
 #endif
-
-

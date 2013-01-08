@@ -19,23 +19,22 @@
  * Date: 15 July 2003
  */
 
-#include <sstream>
+#include "gazebo/common/Events.hh"
+#include "gazebo/common/Exception.hh"
+#include "gazebo/common/Image.hh"
 
-#include "common/Events.hh"
-#include "common/Exception.hh"
+#include "gazebo/transport/transport.hh"
+#include "gazebo/msgs/msgs.hh"
 
-#include "transport/transport.hh"
-#include "msgs/msgs.hh"
+#include "gazebo/physics/World.hh"
 
-#include "physics/World.hh"
+#include "gazebo/rendering/RenderEngine.hh"
+#include "gazebo/rendering/Camera.hh"
+#include "gazebo/rendering/Scene.hh"
+#include "gazebo/rendering/Rendering.hh"
 
-#include "rendering/RenderEngine.hh"
-#include "rendering/Camera.hh"
-#include "rendering/Scene.hh"
-#include "rendering/Rendering.hh"
-
-#include "sensors/SensorFactory.hh"
-#include "sensors/CameraSensor.hh"
+#include "gazebo/sensors/SensorFactory.hh"
+#include "gazebo/sensors/CameraSensor.hh"
 
 using namespace gazebo;
 using namespace sensors;
@@ -151,19 +150,13 @@ void CameraSensor::Fini()
 }
 
 //////////////////////////////////////////////////
-void CameraSensor::SetActive(bool value)
-{
-  Sensor::SetActive(value);
-}
-
-//////////////////////////////////////////////////
 void CameraSensor::UpdateImpl(bool /*_force*/)
 {
   if (this->camera)
   {
     this->camera->Render();
     this->camera->PostRender();
-    this->lastUpdateTime = this->world->GetSimTime();
+    this->lastMeasurementTime = this->world->GetSimTime();
 
     if (this->imagePub->HasConnections())
     {
@@ -171,7 +164,7 @@ void CameraSensor::UpdateImpl(bool /*_force*/)
       msgs::Set(msg.mutable_time(), this->world->GetSimTime());
       msg.mutable_image()->set_width(this->camera->GetImageWidth());
       msg.mutable_image()->set_height(this->camera->GetImageHeight());
-      // msg.mutable_image()->set_pixel_format(this->camera->GetImageFormat());
+      msg.mutable_image()->set_pixel_format(common::Image::RGB_INT32);
       msg.mutable_image()->set_step(this->camera->GetImageWidth() * 3);
       msg.mutable_image()->set_data(this->camera->GetImageData(),
           msg.image().width() * 3 * msg.image().height());

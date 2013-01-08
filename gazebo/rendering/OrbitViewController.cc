@@ -40,11 +40,22 @@ OrbitViewController::OrbitViewController(UserCameraPtr _camera)
   this->minDist = MIN_DISTANCE;
   this->maxDist = 0;
   this->typeString = TYPE_STRING;
+
+  this->refVisual.reset(new Visual("OrbitViewController",
+                        this->camera->GetScene()));
+
+  this->refVisual->Init();
+  this->refVisual->AttachMesh("unit_sphere");
+  this->refVisual->SetScale(math::Vector3(0.2, 0.2, 0.1));
+  this->refVisual->SetCastShadows(false);
+  this->refVisual->SetMaterial("Gazebo/YellowTransparent");
+  this->refVisual->SetVisible(false);
 }
 
 //////////////////////////////////////////////////
 OrbitViewController::~OrbitViewController()
 {
+  this->refVisual.reset();
 }
 
 //////////////////////////////////////////////////
@@ -130,6 +141,20 @@ void OrbitViewController::Update()
 }
 
 //////////////////////////////////////////////////
+void OrbitViewController::HandleKeyPressEvent(const std::string &_key)
+{
+  if (_key == "x" || _key == "y" || _key == "z")
+    this->key = _key;
+}
+
+//////////////////////////////////////////////////
+void OrbitViewController::HandleKeyReleaseEvent(const std::string &_key)
+{
+  if (_key == "x" || _key == "y" || _key == "z")
+    this->key.clear();
+}
+
+//////////////////////////////////////////////////
 void OrbitViewController::HandleMouseEvent(const common::MouseEvent &_event)
 {
   if (!this->enabled)
@@ -144,6 +169,8 @@ void OrbitViewController::HandleMouseEvent(const common::MouseEvent &_event)
 
   if (_event.buttons & common::MouseEvent::MIDDLE)
   {
+    this->refVisual->SetVisible(true);
+
     if (_event.pressPos == _event.pos)
     {
       this->focalPoint = this->camera->GetScene()->GetFirstContact(this->camera,
@@ -152,14 +179,35 @@ void OrbitViewController::HandleMouseEvent(const common::MouseEvent &_event)
           this->focalPoint);
     }
 
-    this->yaw += drag.x * _event.moveScale * -0.2;
-    this->pitch += drag.y * _event.moveScale * 0.2;
-
-    this->NormalizeYaw(this->yaw);
-    this->NormalizePitch(this->pitch);
+    /// Lock rotation to an axis if the "y" or "z" key is pressed.
+    if (!this->key.empty() && (this->key == "y" || this->key == "z"))
+    {
+      // Limit rotation about the "y" axis.
+      if (this->key == "y")
+      {
+        this->pitch += drag.y * _event.moveScale * 0.2;
+        this->NormalizePitch(this->pitch);
+      }
+      // Limit rotation about the "z" axis.
+      else
+      {
+        this->yaw += drag.x * _event.moveScale * -0.2;
+        this->NormalizeYaw(this->yaw);
+      }
+    }
+    // Otherwise rotate about "y" and "z".
+    else
+    {
+      this->yaw += drag.x * _event.moveScale * -0.2;
+      this->pitch += drag.y * _event.moveScale * 0.2;
+      this->NormalizeYaw(this->yaw);
+      this->NormalizePitch(this->pitch);
+    }
   }
   else if (_event.buttons & common::MouseEvent::LEFT)
   {
+    this->refVisual->SetVisible(true);
+
     this->distance =
       this->camera->GetWorldPose().pos.Distance(this->focalPoint);
 
@@ -167,11 +215,40 @@ void OrbitViewController::HandleMouseEvent(const common::MouseEvent &_event)
     double fovX = 2.0f * atan(tan(fovY / 2.0f) *
         this->camera->GetAspectRatio());
 
-    this->Translate(math::Vector3(0.0,
+    math::Vector3 translation;
+
+    // If the "x", "y", or "z" key is pressed, then lock translation to the
+    // indicated axis.
+    if (!this->key.empty())
+    {
+      if (this->key == "x")
+        translation.Set((drag.y / static_cast<float>(height)) *
+                        this->distance * tan(fovY / 2.0) * 2.0, 0.0, 0.0);
+      else if (this->key == "y")
+        translation.Set(0.0, (drag.x / static_cast<float>(width)) *
+                        this->distance * tan(fovX / 2.0) * 2.0, 0.0);
+      else if (this->key == "z")
+        translation.Set(0.0, 0.0, (drag.y / static_cast<float>(height)) *
+                        this->distance * tan(fovY / 2.0) * 2.0);
+      else
+        gzerr << "Unable to handle key [" << this->key << "] in orbit view "
+              << "controller.\n";
+
+      // Translate in the global coordinate frame
+      this->TranslateGlobal(translation);
+    }
+    else
+    {
+      // Translate in the "y" "z" plane.
+      translation.Set(0.0,
           (drag.x / static_cast<float>(width)) *
           this->distance * tan(fovX / 2.0) * 2.0,
           (drag.y / static_cast<float>(height)) *
-          this->distance * tan(fovY / 2.0) * 2.0));
+          this->distance * tan(fovY / 2.0) * 2.0);
+
+      // Translate in the local coordinate frame
+      this->TranslateLocal(translation);
+    }
   }
   else if (_event.type == common::MouseEvent::SCROLL)
   {
@@ -195,7 +272,6 @@ void OrbitViewController::HandleMouseEvent(const common::MouseEvent &_event)
         this->focalPoint += (this->worldFocal - this->focalPoint) * 0.04;
       else
         this->focalPoint += (this->focalPoint - this->worldFocal) * 0.04;
-
     }
     else
       factor = 80;
@@ -204,14 +280,23 @@ void OrbitViewController::HandleMouseEvent(const common::MouseEvent &_event)
     this->Zoom(-(_event.scroll.y * factor) * _event.moveScale *
                (this->distance / 10.0));
   }
+  else
+    this->refVisual->SetVisible(false);
 
+  this->refVisual->SetPosition(this->focalPoint);
   this->UpdatePose();
 }
 
 //////////////////////////////////////////////////
-void OrbitViewController::Translate(math::Vector3 vec)
+void OrbitViewController::TranslateLocal(math::Vector3 vec)
 {
   this->focalPoint += this->camera->GetWorldPose().rot * vec;
+}
+
+//////////////////////////////////////////////////
+void OrbitViewController::TranslateGlobal(math::Vector3 vec)
+{
+  this->focalPoint += vec;
 }
 
 //////////////////////////////////////////////////
@@ -224,6 +309,7 @@ void OrbitViewController::SetDistance(float _d)
 void OrbitViewController::SetFocalPoint(const math::Vector3 &_fp)
 {
   this->focalPoint = _fp;
+  this->refVisual->SetPosition(this->focalPoint);
 }
 
 //////////////////////////////////////////////////
@@ -243,7 +329,6 @@ void OrbitViewController::SetPitch(double _pitch)
 {
   this->pitch = _pitch;
 }
-
 
 //////////////////////////////////////////////////
 void OrbitViewController::NormalizeYaw(float &v)

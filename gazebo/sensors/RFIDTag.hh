@@ -1,4 +1,4 @@
-/* Copyright (C)
+/* Copyright (C) 2012
  *     Jonas Mellin & Zakiruz Zaman
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@
  * Date: 6th December 2011
  */
 
-#ifndef RFIDTAG_HH
-#define RFIDTAG_HH
+#ifndef _RFIDTAG_HH_
+#define _RFIDTAG_HH_
 
 #include <vector>
 #include <string>
 
-#include "transport/TransportTypes.hh"
-#include "sensors/Sensor.hh"
-#include "math/gzmath.hh"
-#include "physics/physics.hh"
+#include "gazebo/transport/TransportTypes.hh"
+#include "gazebo/sensors/Sensor.hh"
+#include "gazebo/math/gzmath.hh"
+#include "gazebo/physics/physics.hh"
 
 namespace gazebo
 {
@@ -35,35 +35,41 @@ namespace gazebo
     /// \addtogroup gazebo_sensors
     /// \{
 
-    /// \brief RFID tag sensor
+    /// \class RFIDTag RFIDTag.hh sensors/sensors.hh
+    /// \brief RFIDTag to interact with RFIDTagSensors
     class RFIDTag: public Sensor
     {
-      /// \brief  Constructor
+      /// \brief Constructor.
       public: RFIDTag();
 
-      /// \brief  Destructor
+      /// \brief Destructor.
       public: virtual ~RFIDTag();
 
-      /// \brief Load the sensor with SDF parameters
-      /// \param _sdf SDF Sensor parameteres
+      // Documentation inherited
       public: virtual void Load(const std::string & _worldName,
                                 sdf::ElementPtr &_sdf);
 
-      /// \brief Load the sensor with default parameters
+      // Documentation inherited
       public: virtual void Load(const std::string & _worldName);
 
-      /// \brief  Initialize the sensor
+      // Documentation inherited
       public: virtual void Init();
 
+      // Documentation inherited
       protected: virtual void UpdateImpl(bool _force);
 
-      /// \brief  Finalize the sensor
+      // Documentation inherited
       public: virtual void Fini();
 
-      /// \brief  returns pose of tag in world coordinate
-      public: math::Pose GetTagPose() {return entity->GetWorldPose();}
+      /// \brief Returns pose of tag in world coordinate.
+      /// \return Pose of object.
+      public: math::Pose GetTagPose() const
+              {return entity->GetWorldPose();}
 
+      /// \brief Pointer the entity that has the RFID tag.
       private: physics::EntityPtr entity;
+
+      /// \brief Publisher for tag pose messages.
       private: transport::PublisherPtr scanPub;
     };
     /// \}

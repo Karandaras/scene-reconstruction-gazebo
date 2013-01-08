@@ -205,12 +205,6 @@ if (PKG_CONFIG_FOUND)
     set (OGRE_PLUGINDIR ${_pkgconfig_invoke_result})
   endif()
 
-  #################################################
-  # Find XML
-  pkg_check_modules(XML libxml-2.0)
-  if (NOT XML_FOUND)
-    BUILD_ERROR("Missing: libxml2(http://www.xmlsoft.org)")
-  endif ()
 
   ########################################
   # Find OpenAL
@@ -302,11 +296,11 @@ endif()
 ########################################
 # Find Boost, if not specified manually
 include(FindBoost)
-find_package(Boost ${MIN_BOOST_VERSION} REQUIRED thread signals system filesystem program_options regex iostreams)
+find_package(Boost ${MIN_BOOST_VERSION} REQUIRED thread signals system filesystem program_options regex iostreams date_time)
 
 if (NOT Boost_FOUND)
   set (BUILD_GAZEBO OFF CACHE INTERNAL "Build Gazebo" FORCE)
-  BUILD_ERROR ("Boost not found. Please install thread signals system filesystem program_options regex boost version ${MIN_BOOST_VERSION} or higher.")
+  BUILD_ERROR ("Boost not found. Please install thread signals system filesystem program_options regex date_time boost version ${MIN_BOOST_VERSION} or higher.")
 endif() 
 
 ########################################

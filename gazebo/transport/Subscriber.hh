@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
  * Author: Nate Koenig
  */
 
-#ifndef SUBSCRIBER_HH
-#define SUBSCRIBER_HH
+#ifndef _SUBSCRIBER_HH_
+#define _SUBSCRIBER_HH_
 
 #include <string>
 #include <boost/shared_ptr.hpp>
@@ -33,16 +33,20 @@ namespace gazebo
     /// \addtogroup gazebo_transport
     /// \{
 
+    /// \class Subscriber Subscriber.hh transport/transport.hh
     /// \brief A subscriber to a topic
     class Subscriber
     {
       /// \brief Constructor
-      public: Subscriber(const std::string &topic, NodePtr _node);
+      /// \param[in] _topic The topic we're subscribing to
+      /// \param[in] _node The associated node
+      public: Subscriber(const std::string &_topic, NodePtr _node);
 
       /// \brief Destructor
       public: virtual ~Subscriber();
 
       /// \brief Get the topic name
+      /// \return The topic name
       public: std::string GetTopic() const;
 
       /// \brief Unsubscribe from the topic

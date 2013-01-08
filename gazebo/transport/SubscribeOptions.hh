@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Nate Koenig
+ * Copyright 2012 Nate Koenig
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  *
 */
-#ifndef SUBSCRIBEOPTIONS_HH
-#define SUBSCRIBEOPTIONS_HH
+#ifndef _SUBSCRIBEOPTIONS_HH_
+#define _SUBSCRIBEOPTIONS_HH_
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
@@ -29,13 +29,20 @@ namespace gazebo
     /// \addtogroup gazebo_transport
     /// \{
 
+    /// \class SubscribeOptions SubscribeOptions.hh transport/transport.hh
     /// \brief Options for a subscription
     class SubscribeOptions
     {
+      /// \brief Constructor
       public: SubscribeOptions()
               : latching(false)
               {}
 
+      /// \brief Initialize the options
+      /// \param[in] _topic Topic we're subscribing to
+      /// \param[in,out] _node The associated node
+      /// \param[in] _latching If true, latch the latest message; if false,
+      /// don't latch
       public: template<class M>
               void Init(const std::string &_topic,
                         NodePtr _node,
@@ -53,21 +60,29 @@ namespace gazebo
                 this->latching = _latching;
               }
 
+      /// \brief Get the node we're subscribed to
+      /// \return The associated node
       public: NodePtr GetNode() const
               {
                 return this->node;
               }
 
+      /// \brief Get the topic we're subscribed to
+      /// \return The topic we're subscribed to
       public: std::string GetTopic() const
               {
                 return this->topic;
               }
 
+      /// \brief Get the type of the topic we're subscribed to
+      /// \return The type of the topic we're subscribed to
       public: std::string GetMsgType() const
               {
                 return this->msgType;
               }
 
+      /// \brief Are we latching?
+      /// \return true if we're latching the latest message, false otherwise
       public: bool GetLatching() const
               {
                 return this->latching;

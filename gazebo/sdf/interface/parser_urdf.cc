@@ -34,6 +34,7 @@
 
 #include <urdf_parser/urdf_parser.h>
 #include <sdf/interface/parser_urdf.hh>
+#include <sdf/sdf.hh>
 
 #include <fstream>
 #include <sstream>
@@ -443,7 +444,8 @@ void URDF2Gazebo::insertGazeboExtensionCollision(TiXmlElement *elem,
           addKeyValue(contact_ode, "max_vel", values2str(1, &(*ge)->maxVel));
         // contact interpenetration margin tolerance
         if ((*ge)->is_minDepth)
-          addKeyValue(contact_ode, "minDepth", values2str(1, &(*ge)->minDepth));
+          addKeyValue(contact_ode, "min_depth",
+                      values2str(1, &(*ge)->minDepth));
         if ((*ge)->is_laser_retro)
           addKeyValue(elem, "laser_retro", values2str(1, &(*ge)->laser_retro));
 
@@ -685,7 +687,7 @@ void URDF2Gazebo::createGeometry(TiXmlElement* elem,
         std::string model_filename = mesh->filename;
         std::string package_prefix("package://");
         std::string model_prefix("model://");
-        size_t pos1 = model_filename.find(package_prefix,0);
+        size_t pos1 = model_filename.find(package_prefix, 0);
         if (pos1 != std::string::npos)
         {
           size_t rep_len = package_prefix.size();
@@ -711,7 +713,7 @@ void URDF2Gazebo::createGeometry(TiXmlElement* elem,
     break;
   }
 
-  if(geometry_type)
+  if (geometry_type)
   {
     gazebo_geometry->LinkEndChild(geometry_type);
     elem->LinkEndChild(gazebo_geometry);
@@ -1572,8 +1574,8 @@ TiXmlDocument URDF2Gazebo::initModelString(std::string urdf_str)
     insertGazeboExtensionRobot(robot);
 
     // add robot to gazebo_xml_out
-    TiXmlElement *gazebo_sdf = new TiXmlElement("gazebo");
-    gazebo_sdf->SetAttribute("version", "1.2");
+    TiXmlElement *gazebo_sdf = new TiXmlElement("sdf");
+    gazebo_sdf->SetAttribute("version", SDF_VERSION);
     gazebo_sdf->LinkEndChild(robot);
     gazebo_xml_out.LinkEndChild(gazebo_sdf);
 
