@@ -122,7 +122,7 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
             	  gzerr << "model named \"" << model << "\" not found, leaving out this <object>\n";
               }
               else {
-                object_list[name].object = model;
+                object_list[name].object = name;
                 object_list[name].model = m;
                 object_names[model] = name;
               }
@@ -148,7 +148,6 @@ void ObjectInstantiatorPlugin::Load(physics::WorldPtr _world, sdf::ElementPtr _s
   this->framePub = this->node->Advertise<msgs::Request>(std::string("~/SceneReconstruction/Framework/Request"));
   this->requestPub = this->node->Advertise<msgs::Request>(std::string("~/request"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
-//  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
   this->drawingPub = this->node->Advertise<msgs::Drawing>(std::string("~/draw"));
 
   this->objectSub = this->node->Subscribe(std::string("~/SceneReconstruction/ObjectInstantiator/Object"), &ObjectInstantiatorPlugin::OnSceneObjectMsg, this);
@@ -219,11 +218,6 @@ void ObjectInstantiatorPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
     }
     this->objectPub->Publish(response);
   }
-//  else if(_msg->request() == "update_object_buffer") {
-//    msgs::Message_V buffer;
-//    fill_buffer_msg(buffer);
-//    bufferPub->Publish(buffer);
-//  }
   else {
     response.set_response("unknown");
     msgs::GzString src;
@@ -249,16 +243,8 @@ void ObjectInstantiatorPlugin::OnUpdate() {
     return;
 
   common::Time now = common::Time(world->GetSimTime());
-//  unsigned int obs = this->object_buffer.size();
-
   this->ProcessSceneObjectMsgs();
   this->UpdateObjects(now);
-
-//  if(this->object_buffer.size() != obs) {
-//    msgs::Message_V buffer;
-//    fill_buffer_msg(buffer);
-//    bufferPub->Publish(buffer);
-//  }
 }
 
 void ObjectInstantiatorPlugin::UpdateObjects(common::Time now) {
@@ -269,11 +255,12 @@ void ObjectInstantiatorPlugin::UpdateObjects(common::Time now) {
     std::list<SceneObject>::iterator it;
     std::list<SceneObject> new_object_buffer;
     for(it = object_buffer.begin(); it != object_buffer.end(); it++) {
-      if(it->buffertime < now) {
+      if(it->buffertime <= now) {
         update_object(*it);
       }
-      else if(it->buffertime < this->next_buffer) {
-        this->next_buffer = it->buffertime;
+      else {
+        if(it->buffertime < this->next_buffer)
+          this->next_buffer = it->buffertime;
         new_object_buffer.push_back(*it);
       }
     }
@@ -301,13 +288,16 @@ void ObjectInstantiatorPlugin::update_object(SceneObject obj) {
 
   if(visible && !obj.visible) {
     // object became invisible, so move it out of sight (10 meters below the floor)
-    if(object_list[obj.object].model)
+    if(object_list[obj.object].model) {
       object_list[obj.object].model->SetWorldPose(out_of_sight);
+    }
   }
   else if (obj.visible) {
     // object visible, so update pose
-    if(object_list[obj.object].model)
+    if(object_list[obj.object].model) {
       object_list[obj.object].model->SetWorldPose(object_list[obj.object].pose);
+    }
+
   }
 }
 
@@ -317,12 +307,16 @@ bool ObjectInstantiatorPlugin::fill_object_msg(std::string name, msgs::SceneObje
   std::map<std::string, SceneObject>::iterator it =  object_list.find(name);
   if(it != object_list.end()) {
     _msg.set_object(it->second.object);
-    const math::Pose pose = this->world->GetModel(it->second.object)->GetWorldPose();
     _msg.set_visible(it->second.visible);
     msgs::Pose *p = _msg.mutable_pose();
-    p->CopyFrom(msgs::Convert(pose));
+    math::Pose pose;
+    if(it->second.model)
+      p->CopyFrom(msgs::Convert(it->second.model->GetWorldPose()));
+    else
+      p->CopyFrom(msgs::Convert(pose));
     _msg.set_time(it->second.buffertime.Double());
     _msg.set_query(it->second.query);
+    _msg.set_frame(it->second.frame);
     return true;
   }
   
@@ -380,7 +374,6 @@ void ObjectInstantiatorPlugin::OnSceneObjectMsg(ConstMessage_VPtr &_msg) {
 
 void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
   if(_msg->time() < 0.0) {
-    gzmsg << "clearing buffer preview\n";
     std::map<std::string, SceneObject>::iterator iter;
     for(iter = object_list.begin(); iter != object_list.end(); iter++) {
       msgs::Drawing drw;
@@ -391,25 +384,31 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
   }
   else {
     // create bounding box drawings
-    gzmsg << "creating buffer preview for object " << _msg->object() << "\n";
     msgs::Drawing drw;
     drw.set_name(_msg->object());
     physics::ModelPtr mdl;
     std::map<std::string, SceneObject>::iterator it =  object_list.find(_msg->object());
     if(it != object_list.end()) {
       mdl = it->second.model;
-      gzmsg << "found model for object " << _msg->object() << "\n";
     }
 
     if(_msg->visible() && mdl) {
       drw.set_visible(true);
       math::Pose p = msgs::Convert(_msg->pose());
       p.pos += position_offset;
+
+      // TODO: proper fix for Object Pose 
+      if(_msg->object().find("Object") != std::string::npos) {
+        p.rot.w = 1.0;
+        p.rot.x = 0.0;
+        p.rot.y = 0.0;
+        p.rot.z = 0.0;
+      }
+
       drw.mutable_pose()->CopyFrom(msgs::Convert(p));
       drw.set_material("SceneReconstruction/Object");
       drw.set_mode(msgs::Drawing::LINE_LIST);
 
-      gzmsg << "setting points for object " << _msg->object() << "\n";
       // add points for all 12 lines of the bounding box
       msgs::Drawing::Point *p11 = drw.add_point();
       msgs::Drawing::Point *p12 = drw.add_point();
@@ -436,15 +435,18 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       msgs::Drawing::Point *pC1 = drw.add_point();
       msgs::Drawing::Point *pC2 = drw.add_point();
 
-      // set the respective coordinates for the points
+      // get bounding box and "move" it to 0,0,0
       math::Box bb = mdl->GetBoundingBox();
+      bb.max = bb.max - mdl->GetWorldPose().pos;
+      bb.min = bb.min - mdl->GetWorldPose().pos;
+
+      // set the respective coordinates for the points
       p11->mutable_position()->set_x(bb.max.x);
       p11->mutable_position()->set_y(bb.max.y);
       p11->mutable_position()->set_z(bb.max.z);
       p12->mutable_position()->set_x(bb.max.x);
       p12->mutable_position()->set_y(bb.min.y);
       p12->mutable_position()->set_z(bb.max.z);
-      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.max.x << "," << bb.min.y << "," << bb.max.z << ")" << "\n";
 
       p21->mutable_position()->set_x(bb.max.x);
       p21->mutable_position()->set_y(bb.max.y);
@@ -452,7 +454,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p22->mutable_position()->set_x(bb.min.x);
       p22->mutable_position()->set_y(bb.max.y);
       p22->mutable_position()->set_z(bb.max.z);
-      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.max.y << "," << bb.max.z << ")" << "\n";
 
       p31->mutable_position()->set_x(bb.max.x);
       p31->mutable_position()->set_y(bb.min.y);
@@ -460,7 +461,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p32->mutable_position()->set_x(bb.min.x);
       p32->mutable_position()->set_y(bb.min.y);
       p32->mutable_position()->set_z(bb.max.z);
-      gzmsg << "(" << bb.max.x << "," << bb.min.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.max.z << ")" << "\n";
 
       p41->mutable_position()->set_x(bb.min.x);
       p41->mutable_position()->set_y(bb.max.y);
@@ -468,7 +468,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p42->mutable_position()->set_x(bb.min.x);
       p42->mutable_position()->set_y(bb.min.y);
       p42->mutable_position()->set_z(bb.max.z);
-      gzmsg << "(" << bb.min.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.max.z << ")" << "\n";
 
       p51->mutable_position()->set_x(bb.max.x);
       p51->mutable_position()->set_y(bb.max.y);
@@ -476,7 +475,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p52->mutable_position()->set_x(bb.max.x);
       p52->mutable_position()->set_y(bb.min.y);
       p52->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.min.z << ") -> ("<< bb.max.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
 
       p61->mutable_position()->set_x(bb.max.x);
       p61->mutable_position()->set_y(bb.max.y);
@@ -484,7 +482,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p62->mutable_position()->set_x(bb.min.x);
       p62->mutable_position()->set_y(bb.max.y);
       p62->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.min.z << ") -> ("<< bb.min.x << "," << bb.max.y << "," << bb.min.z << ")" << "\n";
 
       p71->mutable_position()->set_x(bb.max.x);
       p71->mutable_position()->set_y(bb.min.y);
@@ -492,7 +489,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p72->mutable_position()->set_x(bb.min.x);
       p72->mutable_position()->set_y(bb.min.y);
       p72->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.max.x << "," << bb.min.y << "," << bb.min.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
 
       p81->mutable_position()->set_x(bb.min.x);
       p81->mutable_position()->set_y(bb.max.y);
@@ -500,7 +496,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p82->mutable_position()->set_x(bb.min.x);
       p82->mutable_position()->set_y(bb.min.y);
       p82->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.min.x << "," << bb.max.y << "," << bb.min.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
 
       p91->mutable_position()->set_x(bb.max.x);
       p91->mutable_position()->set_y(bb.max.y);
@@ -508,7 +503,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       p92->mutable_position()->set_x(bb.max.x);
       p92->mutable_position()->set_y(bb.max.y);
       p92->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.max.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.max.x << "," << bb.max.y << "," << bb.min.z << ")" << "\n";
 
       pA1->mutable_position()->set_x(bb.min.x);
       pA1->mutable_position()->set_y(bb.max.y);
@@ -516,7 +510,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       pA2->mutable_position()->set_x(bb.min.x);
       pA2->mutable_position()->set_y(bb.max.y);
       pA2->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.min.x << "," << bb.max.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.max.y << "," << bb.min.z << ")" << "\n";
 
       pB1->mutable_position()->set_x(bb.max.x);
       pB1->mutable_position()->set_y(bb.min.y);
@@ -524,7 +517,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       pB2->mutable_position()->set_x(bb.max.x);
       pB2->mutable_position()->set_y(bb.min.y);
       pB2->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.max.x << "," << bb.min.y << "," << bb.max.z << ") -> ("<< bb.max.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
 
       pC1->mutable_position()->set_x(bb.min.x);
       pC1->mutable_position()->set_y(bb.min.y);
@@ -532,7 +524,6 @@ void ObjectInstantiatorPlugin::OnObjectMsg(ConstSceneObjectPtr &_msg) {
       pC2->mutable_position()->set_x(bb.min.x);
       pC2->mutable_position()->set_y(bb.min.y);
       pC2->mutable_position()->set_z(bb.min.z);
-      gzmsg << "(" << bb.min.x << "," << bb.min.y << "," << bb.max.z << ") -> ("<< bb.min.x << "," << bb.min.y << "," << bb.min.z << ")" << "\n";
     }
     else
       drw.set_visible(false);
@@ -564,8 +555,9 @@ void ObjectInstantiatorPlugin::ProcessSceneObjectMsgs() {
         if(so.buffertime <= common::Time(world->GetSimTime())) {
           update_object(so);
         }
-        else if(so.buffertime <= this->next_buffer) {
-          this->next_buffer = so.buffertime;
+        else {
+          if(so.buffertime <= this->next_buffer)
+            this->next_buffer = so.buffertime;
           object_buffer.push_back(so);
         }
       }

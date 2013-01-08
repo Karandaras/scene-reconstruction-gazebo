@@ -59,7 +59,6 @@ namespace gazebo
                                           framePub,
                                           requestPub,
                                           objectPub,
-//                                          bufferPub,
                                           drawingPub,
                                           statusPub;
       common::Time                        next_buffer;

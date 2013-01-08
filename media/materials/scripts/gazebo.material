@@ -835,10 +835,16 @@ material drc/san_fauxcity_sign
 
 material SceneReconstruction/Object : Gazebo/BlueGlow
 {
+  receive_shadows off
+
   technique
   {
     pass
     {
+      scene_blend alpha_blend
+      depth_write off
+      cull_hardware none
+
       point_size 5 
     }
   }
@@ -846,11 +852,17 @@ material SceneReconstruction/Object : Gazebo/BlueGlow
 
 material SceneReconstruction/PointCloud : Gazebo/GreenTransparent
 {
+  receive_shadows off
+
 	technique
 	{
 		pass
 		{
-      point_size 3
+      scene_blend alpha_blend
+      depth_write off
+      cull_hardware none
+
+      point_size 1
 		}
 	}
 }

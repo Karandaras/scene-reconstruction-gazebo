@@ -80,7 +80,6 @@ namespace gazebo
                                                   anglesSub;
       transport::PublisherPtr                     srguiPub,
                                                   offsetPub,
-//s                                                  bufferPub,
                                                   drawingPub,
                                                   statusPub;
 
@@ -162,14 +161,6 @@ namespace gazebo
         * @param _msg SceneJoint message containing needed data for visualization
         */
       void OnAnglesMsg(ConstSceneJointPtr &_msg);
-      /** Fills a message with the current joint buffer content
-        * @param _msg Message that gets filled
-        */
-//      void fill_joint_buffer_msg(msgs::Message_V &_msg);
-      /** Fills a message with the current position buffer content
-        * @param _msg Message that gets filled
-        */
-//      void fill_position_buffer_msg(msgs::Message_V &_msg);
   };
 }
 #endif

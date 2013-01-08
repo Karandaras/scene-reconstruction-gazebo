@@ -237,7 +237,6 @@ void RobotControllerPlugin::Load(physics::ModelPtr _model,
   this->srguiPub = this->node->Advertise<msgs::SceneRobotController>(std::string("~/SceneReconstruction/RobotController/ControllerInfo"));
   this->offsetPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Response"));
   this->statusPub = this->node->Advertise<msgs::Response>(std::string("~/SceneReconstruction/GUI/Availability/Response"));
-//  this->bufferPub = this->node->Advertise<msgs::Message_V>(std::string("~/SceneReconstruction/GUI/Buffer"));
   this->drawingPub = this->node->Advertise<msgs::Drawing>("~/draw");
 
   // connect update to worldupdate
@@ -334,23 +333,9 @@ void RobotControllerPlugin::OnUpdate()
     this->srguiPub->Publish(src);
   }
 
-//  unsigned int jcl = jointControlList.size();
-//  unsigned int rcl = robotControlList.size();
-
   this->ProcessControlMsgs();
   this->ControlRobot(now);
   this->ControlJoints(now);
-
-//  if(jcl != jointControlList.size()) {
-//    msgs::Message_V jointbuffer;
-//    fill_joint_buffer_msg(jointbuffer);
-//    bufferPub->Publish(jointbuffer);
-//  }
-//  if(rcl != robotControlList.size()) {
-//    msgs::Message_V positionbuffer;
-//    fill_position_buffer_msg(positionbuffer);
-//    bufferPub->Publish(positionbuffer);
-//  }
 
   if(!this->bufferpreview_joint)
     this->model->SetJointPositions(currentjointpositions);
@@ -407,7 +392,6 @@ void RobotControllerPlugin::ControlRobot(common::Time now) {
     std::list< RobotCommand > newRobotList;
     for(it = robotControlList.begin(); it != robotControlList.end(); it++) {
       if(it->controltime < now) {
-//        this->model->SetWorldPose(it->pose);
           currentpose = it->pose;
       }
       else {
@@ -554,7 +538,6 @@ void RobotControllerPlugin::InitMsg() {
   
   pose.pos += position_offset;
 
-//  this->model->SetWorldPose(pose);
   currentpose = pose;
 }
 
@@ -587,69 +570,7 @@ void RobotControllerPlugin::OnRequestMsg(ConstRequestPtr &_msg) {
 
     this->offsetPub->Publish(response);
   }
-//  else if(_msg->request() == "update_joint_buffer") {
-//    msgs::Message_V jointbuffer;
-//    fill_joint_buffer_msg(jointbuffer);
-//    bufferPub->Publish(jointbuffer);
-//  }
-//  else if(_msg->request() == "update_position_buffer") {
-//    msgs::Message_V positionbuffer;
-//    fill_position_buffer_msg(positionbuffer);
-//    bufferPub->Publish(positionbuffer);
-//  }
 }
-
-/*
-void RobotControllerPlugin::fill_joint_buffer_msg(msgs::Message_V &_msg) {
-  std::list<JointCommand>::iterator it;
-  common::Time time(0.0);
-  msgs::BufferJoints jnt;
-  _msg.set_msgtype(jnt.GetTypeName());
-  for(it = jointControlList.begin(); it != jointControlList.end(); it++) {
-    if(time != it->controltime) {
-      if(time != 0.0) {
-        std::string *msg = _msg.add_msgsdata();
-        jnt.SerializeToString(msg);
-      }
-      time = it->controltime;
-      jnt.clear_name();
-      jnt.clear_angle();
-      double timestamp;
-      timestamp  = time.sec*1000.0;
-      timestamp += time.nsec/1000000.0;
-      jnt.set_timestamp(timestamp);
-    }
-
-    std::map<std::string, double>::iterator joint;
-    for(joint = it->positions.begin(); joint != it->positions.end(); joint++) {
-      jnt.add_name(joint->first);
-      jnt.add_angle(joint->second);
-    }
-  }
-
-  if(time != 0.0) {
-    std::string *msg = _msg.add_msgsdata();
-    jnt.SerializeToString(msg);
-  }
-}
-
-void RobotControllerPlugin::fill_position_buffer_msg(msgs::Message_V &_msg) {
-  std::list<RobotCommand>::iterator it;
-  msgs::BufferPosition pos;
-  _msg.set_msgtype(pos.GetTypeName());
-  for(it = robotControlList.begin(); it != robotControlList.end(); it++) {
-    double timestamp;
-    timestamp  = it->controltime.sec*1000.0;
-    timestamp += it->controltime.nsec/1000000.0;
-    pos.set_timestamp(timestamp);
-    msgs::Pose *pose = pos.mutable_position();
-    msgs::Set(pose, it->pose);
-
-    std::string *msg = _msg.add_msgsdata();
-    pos.SerializeToString(msg);
-  }
-}
-*/
 
 void RobotControllerPlugin::OnPositionMsg(ConstSceneRobotPtr &_msg) {
   if(_msg->controltime() < 0.0) {
@@ -696,7 +617,7 @@ void RobotControllerPlugin::OnDrawingMsg(ConstDrawingPtr &_msg) {
   msgs::Drawing drw;
   drw.CopyFrom(*_msg);
 
-  math::Pose mp = this->model->GetWorldPose();
+  math::Pose mp(position_offset, math::Quaternion(1.0,0.0,0.0,0.0));
   msgs::Pose *dp = drw.mutable_pose();
   *dp = msgs::Convert(mp);
 
