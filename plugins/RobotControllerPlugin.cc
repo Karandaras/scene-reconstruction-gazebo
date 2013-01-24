@@ -315,8 +315,13 @@ void RobotControllerPlugin::OnUpdate()
         src.add_simulator_name(jointiter->second.simulator_name);
         src.add_robot_name(jointiter->second.robot_name);
         src.add_gripper(jointiter->second.gripper);
-        src.add_simulator_name2(jointiter->second.simulator_name2);
         src.add_offset(jointiter->second.offset);
+        if(jointiter->second.gripper) {
+          src.add_simulator_name2(jointiter->second.simulator_name2);
+          src.add_offset2(jointiter->second.offset);
+          src.add_simulator_angle2(jointiter->second.simulator_angle2);
+        }
+        src.add_factor(jointiter->second.offset);
         src.add_simulator_angle(jointiter->second.simulator_angle);
 	      src.add_robot_angle(jointiter->second.robot_angle);
     }

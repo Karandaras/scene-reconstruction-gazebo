@@ -26,6 +26,10 @@ rcjoint Element (required)(1..n)
     (replace * by the string encapsulated by rcjoint)
     Offset between Model and data
   
+  factor_* Element (optional, defaults to 1) (double)
+    (replace * by the string encapsulated by rcjoint)
+    Factor to adjust gear ratios between Model and data
+  
   gripper_* Element (optional, defaults to false) (bool)
     (replace * by the string encapsulated by rcjoint)
     Joint is part of gripper
@@ -35,10 +39,6 @@ rcjoint Element (required)(1..n)
     Name of second Joint in the Model that gets affected
     only used if <gripper>true</gripper> is set
     angle of this joint is set to the negated angle of the first one
-
-  offset2_* Element (optional, defaults to offset_*) (double)
-    (replace * by the string encapsulated by rcjoint)
-    Offset between Model and data  for the second joint
 
   offset2_* Element (optional, defaults to offset_*) (double)
     (replace * by the string encapsulated by rcjoint)
